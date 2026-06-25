@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /tickets/{ticketId}/report/{file} {
+      allow write: if request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow read: if true;
+    }
+    match /tickets/{ticketId}/resolution/{file} {
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow read: if true;
+    }
+    match /tickets/{ticketId}/reopen/{file} {
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow read: if true;
+    }
+    match /reports/{file} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

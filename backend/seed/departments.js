@@ -1,0 +1,58 @@
+const departments = [
+  {
+    id: 'roads_infrastructure',
+    name: 'Roads & Infrastructure',
+    slaDefault: 7,
+    issueTypes: ['pothole','damaged_road','broken_footpath','fallen_tree','broken_signal'],
+    headOfficerId: null,
+    contactEmail: 'roads@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'water_supply',
+    name: 'Water Supply',
+    slaDefault: 5,
+    issueTypes: ['water_leakage','waterlogging'],
+    headOfficerId: null,
+    contactEmail: 'water@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'sanitation',
+    name: 'Sanitation & Solid Waste',
+    slaDefault: 3,
+    issueTypes: ['garbage','sewage_overflow','illegal_dumping'],
+    headOfficerId: null,
+    contactEmail: 'sanitation@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'electricity',
+    name: 'Electricity & Street Lighting',
+    slaDefault: 5,
+    issueTypes: ['broken_light','exposed_wire'],
+    headOfficerId: null,
+    contactEmail: 'electricity@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'parks_recreation',
+    name: 'Parks & Recreation',
+    slaDefault: 14,
+    issueTypes: ['broken_park_equipment'],
+    headOfficerId: null,
+    contactEmail: 'parks@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'environment',
+    name: 'Environment',
+    slaDefault: 7,
+    issueTypes: ['other'],
+    headOfficerId: null,
+    contactEmail: 'env@kmc.gov.in',
+    createdAt: new Date().toISOString(),
+  },
+];
+
+module.exports = departments;

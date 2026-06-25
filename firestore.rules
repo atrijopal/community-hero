@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    function isOfficer() {
+      return request.auth != null &&
+        (request.auth.token.officer == true ||
+         request.auth.token.senior_officer == true);
+    }
+    function isSeniorOfficer() {
+      return request.auth != null && request.auth.token.senior_officer == true;
+    }
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isAssignedOfficer(ticketId) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/tickets/$(ticketId))
+          .data.assignedOfficerId == request.auth.uid;
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys()
+        .hasNone(['internalNotes', 'assignedOfficerId', 'overrideCount',
+                  'ghostCount', 'accountabilityScore']);
+      allow update: if isAssignedOfficer(ticketId) || isAdmin() || isSeniorOfficer();
+      allow delete: if false;
+    }
+
+    match /ticket_logs/{logId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /officers/{officerId} {
+      allow read: if isAdmin() || isOfficer();
+      allow write: if isAdmin();
+    }
+
+    match /departments/{deptId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gamification/{citizenId} {
+      allow read: if true;
+      allow write: if (isAuthenticated() && request.auth.uid == citizenId) || isAdmin();
+    }
+
+    match /predictions/{predId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /queries/{queryId} {
+      allow read: if isAuthenticated();
+      allow create: if true;
+      allow update: if isAuthenticated();
+    }
+
+    match /counters/{countId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /ward_stats/{statId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+  }
+}
