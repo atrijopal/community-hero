@@ -1,31 +1,44 @@
 import { useState } from 'react';
+import { IconSparkles } from '@tabler/icons-react';
 import { ISSUE_TYPES, DEPARTMENTS } from '../../../utils/constants';
 
+// AI badge — always purple per design doc §3
 const AIBadge = () => (
-  <span className="ml-1.5 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">◆ AI</span>
+  <span className="ml-1.5 inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5"
+    style={{ backgroundColor: '#EDE9F8', color: '#6B50B8', borderRadius: '4px' }}>
+    <IconSparkles size={10} stroke={2} />◆ AI
+  </span>
 );
 
+// Confidence bar: green ≥80, amber ≥50, red <50 — NOT blue
 const ConfidenceBar = ({ confidence, reasoning }) => {
-  const color = confidence >= 80 ? 'bg-green-500' : confidence >= 50 ? 'bg-blue-500' : 'bg-yellow-400';
-  const label = confidence >= 80 ? 'High' : confidence >= 50 ? 'Medium' : 'Low';
+  const color   = confidence >= 80 ? '#1A7A4A' : confidence >= 50 ? '#D4730A' : '#C13B2A';
+  const bgColor = confidence >= 80 ? '#EBF5EF' : confidence >= 50 ? '#FEF3E7' : '#FDF1EF';
+  const label   = confidence >= 80 ? 'High'    : confidence >= 50 ? 'Medium'   : 'Low';
   return (
-    <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+    <div className="mb-5 p-4 border" style={{ backgroundColor: bgColor, borderColor: '#E5E2DE', borderRadius: '8px' }}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">◆ AI Confidence</span>
-        <span className="text-sm font-bold text-gray-900">{confidence}% ({label})</span>
+        <span className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#6B50B8' }}>
+          <IconSparkles size={14} stroke={2} /> AI Confidence
+        </span>
+        <span className="text-sm font-bold" style={{ color }}>{confidence}% — {label}</span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-        <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${confidence}%` }} />
+      <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: '#E5E2DE' }}>
+        <div className="h-1.5 rounded-full transition-all" style={{ width: `${confidence}%`, backgroundColor: color }} />
       </div>
-      {reasoning && <p className="text-xs text-gray-500">{reasoning}</p>}
+      {reasoning && <p className="text-xs mt-2" style={{ color: '#7A7875' }}>{reasoning}</p>}
       {confidence < 50 && (
-        <p className="text-xs text-yellow-700 bg-yellow-50 rounded-lg px-2 py-1 mt-2">
-          ⚠️ Low confidence — please review all fields carefully before submitting.
+        <p className="text-xs mt-2 px-2 py-1.5 border border-l-2" style={{ color: '#C13B2A', backgroundColor: '#FDF1EF', borderColor: '#C13B2A', borderRadius: '4px' }}>
+          Low confidence — please review all fields carefully before submitting.
         </p>
       )}
     </div>
   );
 };
+
+// Shared input / select class
+const fieldClass = 'w-full border px-3 py-2.5 text-sm transition-colors';
+const fieldStyle = { borderColor: '#E5E2DE', borderRadius: '6px', color: '#4A4A48' };
 
 export default function Step2AIReview({ aiData, onConfirm, loading }) {
   const [form, setForm] = useState({
@@ -46,18 +59,21 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-600 font-medium">AI is analyzing your photo...</p>
-        <p className="text-gray-400 text-sm mt-1">This takes 3–5 seconds</p>
+        <div className="w-14 h-14 border-2 rounded-full animate-spin mx-auto mb-4"
+          style={{ borderColor: '#E5E2DE', borderTopColor: '#6B50B8' }} />
+        <p className="font-medium" style={{ color: '#4A4A48' }}>AI is analysing your photo…</p>
+        <p className="text-sm mt-1" style={{ color: '#7A7875' }}>This takes 3–5 seconds</p>
       </div>
     );
   }
 
+  const sevColor = form.severity >= 9 ? '#C13B2A' : form.severity >= 4 ? '#D4730A' : '#1A7A4A';
+
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">🤖 AI Review & Confirm</h2>
-        <p className="text-sm text-gray-500">Review the AI suggestions — every field is editable</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: '#4A4A48' }}>AI Review &amp; Confirm</h2>
+        <p className="text-sm" style={{ color: '#7A7875' }}>Review AI suggestions — every field is editable</p>
       </div>
 
       {aiData?.confidence !== undefined && (
@@ -66,56 +82,56 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
 
       {/* Issue Type */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
           Issue Type {!edited.issueType && <AIBadge />}
         </label>
-        <select
-          value={form.issueType}
-          onChange={e => set('issueType', e.target.value)}
-          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Select type...</option>
-          {ISSUE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        <select value={form.issueType} onChange={e => set('issueType', e.target.value)}
+          className={fieldClass} style={fieldStyle}>
+          <option value="">Select type…</option>
+          {ISSUE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label.replace(/^\p{Emoji}\s*/u, '')}</option>)}
         </select>
       </div>
 
       {/* Severity */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Severity: <strong>{form.severity}/10</strong> {!edited.severity && <AIBadge />}
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7A7875' }}>
+          Severity: <span style={{ color: sevColor }}>{form.severity}/10</span>
+          {!edited.severity && <AIBadge />}
         </label>
-        <input
-          type="range" min="1" max="10" value={form.severity}
+        <input type="range" min="1" max="10" value={form.severity}
           onChange={e => set('severity', parseInt(e.target.value))}
-          className="w-full accent-blue-600"
-        />
-        <div className="flex justify-between text-xs text-gray-400 mt-1">
+          className="w-full" style={{ accentColor: sevColor }} />
+        <div className="flex justify-between text-xs mt-1" style={{ color: '#B8B5B0' }}>
           <span>1 — Minor</span><span>5 — Moderate</span><span>10 — Critical</span>
         </div>
         {form.severity >= 9 && (
-          <p className="mt-2 text-xs bg-red-50 text-red-700 border border-red-100 rounded-lg px-3 py-2">
-            ⚠️ Critical severity — this ticket will be fast-tracked to a senior officer.
+          <p className="mt-2 text-xs px-3 py-2 border-l-2" style={{ color: '#C13B2A', backgroundColor: '#FDF1EF', borderColor: '#C13B2A', borderRadius: '4px' }}>
+            Critical severity — this ticket will be fast-tracked to a senior officer.
           </p>
         )}
       </div>
 
       {/* Danger Level */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7A7875' }}>
           Danger Level {!edited.dangerLevel && <AIBadge />}
         </label>
-        <div className="flex gap-3">
-          {['safe', 'moderate', 'critical'].map(level => (
-            <label key={level} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 cursor-pointer transition text-sm font-medium ${
-              form.dangerLevel === level
-                ? level === 'safe' ? 'border-green-500 bg-green-50 text-green-700'
-                  : level === 'critical' ? 'border-red-500 bg-red-50 text-red-700'
-                  : 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                : 'border-gray-200 text-gray-500 hover:border-gray-300'
-            }`}>
-              <input type="radio" value={level} checked={form.dangerLevel === level}
-                onChange={() => set('dangerLevel', level)} className="sr-only" />
-              {level === 'safe' ? '🟢' : level === 'critical' ? '🔴' : '🟡'} {level.charAt(0).toUpperCase() + level.slice(1)}
+        <div className="flex gap-2">
+          {[
+            { val: 'safe',     color: '#1A7A4A', bg: '#EBF5EF', label: 'Safe' },
+            { val: 'moderate', color: '#D4730A', bg: '#FEF3E7', label: 'Moderate' },
+            { val: 'critical', color: '#C13B2A', bg: '#FDF1EF', label: 'Critical' },
+          ].map(({ val, color, bg, label }) => (
+            <label key={val} className="flex-1 flex items-center justify-center gap-1.5 py-2 cursor-pointer text-sm font-medium border transition-colors"
+              style={{
+                borderRadius: '6px',
+                borderColor: form.dangerLevel === val ? color : '#E5E2DE',
+                backgroundColor: form.dangerLevel === val ? bg : 'white',
+                color: form.dangerLevel === val ? color : '#7A7875',
+              }}>
+              <input type="radio" value={val} checked={form.dangerLevel === val}
+                onChange={() => set('dangerLevel', val)} className="sr-only" />
+              {label}
             </label>
           ))}
         </div>
@@ -123,40 +139,34 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
 
       {/* Department */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
           Department {!edited.departmentId && <AIBadge />}
         </label>
-        <select
-          value={form.departmentId}
-          onChange={e => set('departmentId', e.target.value)}
-          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Select department...</option>
+        <select value={form.departmentId} onChange={e => set('departmentId', e.target.value)}
+          className={fieldClass} style={fieldStyle}>
+          <option value="">Select department…</option>
           {DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
         </select>
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
           Description {!edited.description && <AIBadge />}
         </label>
-        <textarea
-          value={form.description}
-          onChange={e => set('description', e.target.value)}
-          rows={3} maxLength={500}
-          placeholder="Describe the issue..."
-          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-        />
-        <p className="text-xs text-gray-400 text-right mt-1">{form.description.length}/500</p>
+        <textarea value={form.description} onChange={e => set('description', e.target.value)}
+          rows={3} maxLength={500} placeholder="Describe the issue…"
+          className={`${fieldClass} resize-none`} style={fieldStyle} />
+        <p className="text-xs text-right mt-1" style={{ color: '#B8B5B0' }}>{form.description.length}/500</p>
       </div>
 
       <button
         onClick={() => onConfirm(form)}
         disabled={!form.issueType || !form.departmentId || !form.description}
-        className="w-full bg-blue-600 text-white py-3.5 rounded-2xl font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full text-white py-3 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}
       >
-        Confirm & Set Location →
+        Confirm &amp; Set Location →
       </button>
     </div>
   );
