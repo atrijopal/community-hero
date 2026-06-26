@@ -148,7 +148,7 @@ export default function Landing() {
         <div className="flex items-center gap-2">
           <div className="hidden sm:block"><LanguageSelector /></div>
           <Link to="/login"
-            className="px-4 py-2 rounded-lg border bg-white text-[#171717] hover:bg-gray-50 transition"
+            className="px-4 py-2 rounded-lg border bg-white text-[#171717] hover:bg-surface-raised transition"
             style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: 14, borderColor: '#d4d4d4' }}>
             Sign In
           </Link>
@@ -257,7 +257,7 @@ export default function Landing() {
 
       {/* Live Stats Bar */}
       <div className="relative z-10 mt-16 lg:mt-20 mx-4 max-w-2xl lg:mx-auto">
-        <div className="flex items-center justify-around py-5 px-8 rounded-2xl"
+        <div className="flex items-center justify-around py-5 px-8" style={{ borderRadius: '8px' }}
           style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
           {[
             { label: 'Issues Reported', value: stats.total || '—' },
@@ -281,7 +281,7 @@ export default function Landing() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
           {['📸','📍','👻'].map((icon, i) => ({ icon, step: String(i+1).padStart(2,'0'), ...s.steps[i] })).map(c => (
-            <div key={c.step} className="rounded-2xl p-6"
+            <div key={c.step} className="p-6" style={{ borderRadius: '8px' }}
               style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.09)' }}>
               <div className="text-3xl mb-4">{c.icon}</div>
               <div className="text-xs mb-2" style={{ fontFamily: 'Cabin, sans-serif', color: '#a484d7', fontWeight: 600, letterSpacing: '0.5px' }}>

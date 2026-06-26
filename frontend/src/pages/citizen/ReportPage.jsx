@@ -1,41 +1,76 @@
 import { useState } from 'react';
 import Navbar from '../../components/shared/Navbar';
-import Step1Photo from '../../components/citizen/ReportFlow/Step1Photo';
+import Step0Category from '../../components/citizen/ReportFlow/Step0Category';
+import Step1Photo    from '../../components/citizen/ReportFlow/Step1Photo';
+import StepDetails   from '../../components/citizen/ReportFlow/StepDetails';
 import Step2AIReview from '../../components/citizen/ReportFlow/Step2AIReview';
 import Step3Location from '../../components/citizen/ReportFlow/Step3Location';
-import Step4Contact from '../../components/citizen/ReportFlow/Step4Contact';
-import Step5Submit from '../../components/citizen/ReportFlow/Step5Submit';
+import Step4Contact  from '../../components/citizen/ReportFlow/Step4Contact';
+import Step5Submit   from '../../components/citizen/ReportFlow/Step5Submit';
 import api from '../../utils/api';
 
-const STEPS = ['Photo', 'AI Review', 'Location', 'Contact', 'Submit'];
+const STEPS = ['Category', 'Photo', 'Details', 'AI Review', 'Location', 'Contact', 'Submit'];
 
 export default function ReportPage() {
-  const [step, setStep]       = useState(0);
-  const [photo, setPhoto]     = useState(null);
-  const [aiData, setAiData]   = useState(null);
+  const [step, setStep]         = useState(0);
+  const [category, setCategory] = useState(null);   // null = AI-decide escape hatch
+  const [photo, setPhoto]       = useState(null);
+  const [details, setDetails]   = useState(null);   // { description, severityHint }
+  const [aiData, setAiData]     = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [formData, setFormData] = useState(null);
   const [location, setLocation] = useState(null);
   const [contact, setContact]   = useState(null);
 
-  const handlePhotoNext = async (file) => {
-    setPhoto(file);
+  // Step 0 → 1: user picks category (or null = AI decide)
+  const handleCategoryNext = (cat) => {
+    setCategory(cat);
     setStep(1);
+  };
+
+  // Step 2 → 3: user submits details, fire AI verify
+  const handleDetailsNext = async (det) => {
+    setDetails(det);
+    setStep(3);
     setAiLoading(true);
     try {
       const fd = new FormData();
-      fd.append('photo', file);
+      fd.append('photo', photo);
       fd.append('city', 'Kolkata');
-      const res = await api.post('/ai/classify', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setAiData(res.data);
+      if (category) {
+        fd.append('declaredCategory', category);
+      }
+      if (det.description) fd.append('description', det.description);
+      const res = await api.post('/ai/verify', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setAiData({ ...res.data, declaredCategory: category });
     } catch {
-      setAiData({ issueType: '', category: 'Infrastructure', severity: 5, dangerLevel: 'moderate', departmentId: '', description: '', confidence: 0 });
+      setAiData({
+        issueType: '', category: category || 'Infrastructure', severity: 5,
+        dangerLevel: 'moderate', departmentId: '', description: det.description || '',
+        confidence: 0, match: true, matchConfidence: 0, detectedType: '',
+        mismatchReason: null, declaredCategory: category,
+      });
     } finally {
       setAiLoading(false);
     }
   };
 
-  const reset = () => { setStep(0); setPhoto(null); setAiData(null); setFormData(null); setLocation(null); setContact(null); };
+  // Step 3 → recategorize: go back to step 0
+  const handleRecategorize = () => {
+    setCategory(null);
+    setAiData(null);
+    setStep(0);
+  };
+
+  const reset = () => {
+    setStep(0); setCategory(null); setPhoto(null); setDetails(null);
+    setAiData(null); setFormData(null); setLocation(null); setContact(null);
+  };
+
+  // Steps that should NOT show back button
+  const noBack = new Set([0, 6]);
+  // Steps that AI review is "locked" (still loading) — can't go back
+  const canGoBack = !noBack.has(step) && !(step === 3 && aiLoading);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F3F0' }}>
@@ -53,7 +88,7 @@ export default function ReportPage() {
                   }}>
                   {i < step ? '✓' : i + 1}
                 </div>
-                <span className="text-xs mt-1" style={{ color: i === step ? '#C13B2A' : '#B8B5B0', fontWeight: i === step ? 600 : 400 }}>{s}</span>
+                <span className="text-xs mt-1 hidden sm:block" style={{ color: i === step ? '#C13B2A' : '#B8B5B0', fontWeight: i === step ? 600 : 400 }}>{s}</span>
               </div>
             ))}
           </div>
@@ -64,20 +99,31 @@ export default function ReportPage() {
 
         {/* Step card */}
         <div className="bg-white border p-6" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
-          {step === 0 && <Step1Photo onNext={handlePhotoNext} />}
-          {step === 1 && (
+          {step === 0 && <Step0Category onNext={handleCategoryNext} />}
+          {step === 1 && <Step1Photo onNext={(file) => { setPhoto(file); setStep(2); }} />}
+          {step === 2 && <StepDetails category={category} onNext={handleDetailsNext} />}
+          {step === 3 && (
             <Step2AIReview
               aiData={aiData}
               loading={aiLoading}
-              onConfirm={(data) => { setFormData({ ...data, aiSuggested: aiData }); setStep(2); }}
+              onRecategorize={handleRecategorize}
+              onConfirm={(data) => { setFormData(data); setStep(4); }}
             />
           )}
-          {step === 2 && <Step3Location onNext={(loc) => { setLocation(loc); setStep(3); }} />}
-          {step === 3 && <Step4Contact onNext={(c) => { setContact(c); setStep(4); }} />}
-          {step === 4 && <Step5Submit photo={photo} formData={formData} location={location} contact={contact} onReset={reset} />}
+          {step === 4 && <Step3Location onNext={(loc) => { setLocation(loc); setStep(5); }} />}
+          {step === 5 && <Step4Contact onNext={(c) => { setContact(c); setStep(6); }} />}
+          {step === 6 && (
+            <Step5Submit
+              photo={photo}
+              formData={formData}
+              location={location}
+              contact={contact}
+              onReset={reset}
+            />
+          )}
         </div>
 
-        {step > 0 && step < 4 && (
+        {canGoBack && (
           <button onClick={() => setStep(s => s - 1)} className="mt-4 text-sm transition-opacity hover:opacity-70" style={{ color: '#7A7875' }}>
             ← Back
           </button>

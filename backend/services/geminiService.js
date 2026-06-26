@@ -82,7 +82,26 @@ const classifyIssue = async (photoBuffer, context) => {
   }
 };
 
-// 2. Validate resolution (before vs after)
+// 2. Verify report — photo matches declared category + full classify
+const verifyReport = async (photoBuffer, context) => {
+  const img = await imageToBase64(photoBuffer);
+  try {
+    return await callGemini([
+      { text: require('../prompts/verifyReport')(context) },
+      img,
+    ]);
+  } catch (err) {
+    console.error('[Gemini] verifyReport failed:', err.message);
+    return {
+      match: true, matchConfidence: 0, detectedType: '', mismatchReason: null,
+      issueType: context.declaredType || '', category: context.declaredCategory || '',
+      severity: 5, dangerLevel: 'moderate', departmentId: '',
+      description: context.description || '', confidence: 0, reasoning: 'Verification unavailable',
+    };
+  }
+};
+
+// 3. Validate resolution (before vs after)
 const validateResolution = async (beforeUrl, afterUrl) => {
   const [before, after] = await Promise.all([
     imageToBase64(beforeUrl),
@@ -255,7 +274,7 @@ I request information on:
 }
 
 module.exports = {
-  classifyIssue, validateResolution, detectGhost,
+  classifyIssue, verifyReport, validateResolution, detectGhost,
   detectDuplicate, queryBot, generateRTI,
   generateWardReport, predictIssues,
   getQuotaStatus: () => ({ daily: quota.daily, dailyLimit: DAILY_LIMIT, minute: quota.minute }),

@@ -30,8 +30,8 @@ import Predictions     from './pages/admin/Predictions';
 import SystemSettings  from './pages/admin/SystemSettings';
 
 const Spinner = () => (
-  <div className="flex items-center justify-center h-screen bg-gray-50">
-    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  <div className="flex items-center justify-center h-screen" style={{ backgroundColor: '#F5F3F0' }}>
+    <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#E5E2DE', borderTopColor: '#C13B2A' }} />
   </div>
 );
 

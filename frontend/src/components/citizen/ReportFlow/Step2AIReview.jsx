@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { IconSparkles } from '@tabler/icons-react';
+import { IconSparkles, IconCircleCheck, IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
 import { ISSUE_TYPES, DEPARTMENTS } from '../../../utils/constants';
 
-// AI badge — always purple per design doc §3
 const AIBadge = () => (
   <span className="ml-1.5 inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5"
     style={{ backgroundColor: '#EDE9F8', color: '#6B50B8', borderRadius: '4px' }}>
@@ -10,13 +9,59 @@ const AIBadge = () => (
   </span>
 );
 
-// Confidence bar: green ≥80, amber ≥50, red <50 — NOT blue
+const MatchBanner = ({ match, matchConfidence, detectedType, declaredCategory, onRecategorize }) => {
+  if (match === undefined || match === null) return null;
+
+  if (match) {
+    return (
+      <div className="flex items-start gap-3 p-3.5 border" style={{ backgroundColor: '#E8F5EE', borderColor: '#A7D5B9', borderRadius: '8px' }}>
+        <IconCircleCheck size={18} stroke={1.5} style={{ color: '#1A7A4A', shrink: 0, marginTop: 1 }} />
+        <div>
+          <p className="text-sm font-semibold" style={{ color: '#1A7A4A' }}>
+            Photo matches — looks like {detectedType?.replace(/_/g, ' ')} ({matchConfidence}% confidence)
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#7A7875' }}>Review and confirm the AI-filled fields below.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border" style={{ backgroundColor: '#FFF8E0', borderColor: '#F5D56A', borderRadius: '8px', overflow: 'hidden' }}>
+      <div className="flex items-start gap-3 p-3.5">
+        <IconAlertTriangle size={18} stroke={1.5} style={{ color: '#D4730A', shrink: 0, marginTop: 1 }} />
+        <div className="flex-1">
+          <p className="text-sm font-semibold" style={{ color: '#8B6600' }}>
+            Possible mismatch — photo appears to show <em>{detectedType?.replace(/_/g, ' ')}</em>
+            {declaredCategory ? `, not ${declaredCategory.replace(/_/g, ' ')}` : ''}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#7A7875' }}>
+            You can still submit as-is, or recategorize so officers route it correctly.
+          </p>
+        </div>
+      </div>
+      {onRecategorize && (
+        <div className="px-3.5 pb-3 flex gap-2">
+          <button
+            onClick={onRecategorize}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border transition-opacity hover:opacity-80"
+            style={{ borderColor: '#D4730A', color: '#8B6600', backgroundColor: 'white', borderRadius: '6px' }}
+          >
+            <IconRefresh size={12} stroke={1.5} /> Recategorize
+          </button>
+          <span className="text-xs self-center" style={{ color: '#B8B5B0' }}>or continue and flag for officer review</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ConfidenceBar = ({ confidence, reasoning }) => {
   const color   = confidence >= 80 ? '#1A7A4A' : confidence >= 50 ? '#D4730A' : '#C13B2A';
   const bgColor = confidence >= 80 ? '#EBF5EF' : confidence >= 50 ? '#FEF3E7' : '#FDF1EF';
   const label   = confidence >= 80 ? 'High'    : confidence >= 50 ? 'Medium'   : 'Low';
   return (
-    <div className="mb-5 p-4 border" style={{ backgroundColor: bgColor, borderColor: '#E5E2DE', borderRadius: '8px' }}>
+    <div className="p-4 border" style={{ backgroundColor: bgColor, borderColor: '#E5E2DE', borderRadius: '8px' }}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#6B50B8' }}>
           <IconSparkles size={14} stroke={2} /> AI Confidence
@@ -28,7 +73,7 @@ const ConfidenceBar = ({ confidence, reasoning }) => {
       </div>
       {reasoning && <p className="text-xs mt-2" style={{ color: '#7A7875' }}>{reasoning}</p>}
       {confidence < 50 && (
-        <p className="text-xs mt-2 px-2 py-1.5 border border-l-2" style={{ color: '#C13B2A', backgroundColor: '#FDF1EF', borderColor: '#C13B2A', borderRadius: '4px' }}>
+        <p className="text-xs mt-2 px-2 py-1.5 border-l-2" style={{ color: '#C13B2A', backgroundColor: '#FDF1EF', borderColor: '#C13B2A', borderRadius: '4px' }}>
           Low confidence — please review all fields carefully before submitting.
         </p>
       )}
@@ -36,11 +81,10 @@ const ConfidenceBar = ({ confidence, reasoning }) => {
   );
 };
 
-// Shared input / select class
 const fieldClass = 'w-full border px-3 py-2.5 text-sm transition-colors';
 const fieldStyle = { borderColor: '#E5E2DE', borderRadius: '6px', color: '#4A4A48' };
 
-export default function Step2AIReview({ aiData, onConfirm, loading }) {
+export default function Step2AIReview({ aiData, onConfirm, onRecategorize, loading }) {
   const [form, setForm] = useState({
     issueType:    aiData?.issueType    || '',
     category:     aiData?.category     || 'Infrastructure',
@@ -61,8 +105,8 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
       <div className="text-center py-12">
         <div className="w-14 h-14 border-2 rounded-full animate-spin mx-auto mb-4"
           style={{ borderColor: '#E5E2DE', borderTopColor: '#6B50B8' }} />
-        <p className="font-medium" style={{ color: '#4A4A48' }}>AI is analysing your photo…</p>
-        <p className="text-sm mt-1" style={{ color: '#7A7875' }}>This takes 3–5 seconds</p>
+        <p className="font-medium" style={{ color: '#4A4A48' }}>AI is verifying your report…</p>
+        <p className="text-sm mt-1" style={{ color: '#7A7875' }}>Checking photo + description match — 3–5 seconds</p>
       </div>
     );
   }
@@ -75,6 +119,15 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: '#4A4A48' }}>AI Review &amp; Confirm</h2>
         <p className="text-sm" style={{ color: '#7A7875' }}>Review AI suggestions — every field is editable</p>
       </div>
+
+      {/* Match / mismatch banner */}
+      <MatchBanner
+        match={aiData?.match}
+        matchConfidence={aiData?.matchConfidence}
+        detectedType={aiData?.detectedType}
+        declaredCategory={aiData?.declaredCategory}
+        onRecategorize={onRecategorize}
+      />
 
       {aiData?.confidence !== undefined && (
         <ConfidenceBar confidence={aiData.confidence} reasoning={aiData.reasoning} />
@@ -160,8 +213,15 @@ export default function Step2AIReview({ aiData, onConfirm, loading }) {
         <p className="text-xs text-right mt-1" style={{ color: '#B8B5B0' }}>{form.description.length}/500</p>
       </div>
 
+      {/* Mismatch flag note */}
+      {aiData?.match === false && (
+        <p className="text-xs px-3 py-2" style={{ color: '#8B6600', backgroundColor: '#FFF8E0', borderRadius: '6px' }}>
+          This report will be flagged for officer review due to category mismatch — you can still submit.
+        </p>
+      )}
+
       <button
-        onClick={() => onConfirm(form)}
+        onClick={() => onConfirm({ ...form, aiSuggested: aiData, hasMismatch: aiData?.match === false })}
         disabled={!form.issueType || !form.departmentId || !form.description}
         className="w-full text-white py-3 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}

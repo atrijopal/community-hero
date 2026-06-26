@@ -119,7 +119,7 @@ export default function OfficerDashboard() {
             <div className="space-y-0">
               {active.slice(0, 5).map(t => (
                 <Link key={t.id} to={`/track/${t.publicId}`}
-                  className="flex items-center gap-3 py-2.5 border-b last:border-0 hover:bg-gray-50 px-2 transition"
+                  className="flex items-center gap-3 py-2.5 border-b last:border-0 hover:bg-surface-raised px-2 transition"
                   style={{ borderColor: '#E5E2DE' }}>
                   <span className="font-mono text-xs" style={{ color: '#B8B5B0' }}>{t.publicId}</span>
                   <StatusBadge status={t.status} />

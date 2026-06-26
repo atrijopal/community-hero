@@ -48,7 +48,7 @@ export default function AllTickets() {
               </thead>
               <tbody>
                 {filtered.map(t => (
-                  <tr key={t.id} className="border-b transition-colors hover:bg-gray-50" style={{ borderColor: '#E5E2DE' }}>
+                  <tr key={t.id} className="border-b transition-colors hover:bg-surface-raised" style={{ borderColor: '#E5E2DE' }}>
                     <td className="px-4 py-3">
                       <Link to={`/track/${t.publicId}`} className="font-mono text-xs transition-opacity hover:opacity-70"
                         style={{ color: '#C13B2A' }}>

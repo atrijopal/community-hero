@@ -39,7 +39,7 @@ function SeverityBar({ severity = 5, tr }) {
   const label = severity >= 9 ? tr.CRITICAL : severity >= 7 ? tr.HIGH : severity >= 4 ? tr.MEDIUM : tr.LOW;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1 bg-gray-200 rounded-full">
+      <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: '#E5E2DE' }}>
         <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
       <span className="text-xs font-semibold tracking-wide" style={{ color, minWidth: 52 }}>{severity}/10 {label}</span>

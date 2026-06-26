@@ -64,7 +64,7 @@ function OfficerForm({ onSuccess, onCancel }) {
               {loading ? 'Creating…' : 'Create Officer'}
             </button>
             <button type="button" onClick={onCancel}
-              className="px-5 py-3 border transition-colors hover:bg-gray-50"
+              className="px-5 py-3 border transition-colors hover:bg-surface-raised"
               style={{ borderColor: '#E5E2DE', color: '#7A7875', borderRadius: '6px' }}>
               Cancel
             </button>
@@ -136,7 +136,7 @@ export default function StaffManagement() {
               </thead>
               <tbody>
                 {officers.map(o => (
-                  <tr key={o.id} className={`border-b transition-colors hover:bg-gray-50 ${o.status !== 'active' ? 'opacity-60' : ''}`}
+                  <tr key={o.id} className={`border-b transition-colors hover:bg-surface-raised ${o.status !== 'active' ? 'opacity-60' : ''}`}
                     style={{ borderColor: '#E5E2DE' }}>
                     <td className="px-4 py-3">
                       <p className="font-semibold" style={{ color: '#4A4A48' }}>{o.name}</p>

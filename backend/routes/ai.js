@@ -15,6 +15,23 @@ router.post('/classify', rateLimiters.ai, upload.single('photo'), async (req, re
   } catch (err) { next(err); }
 });
 
+// POST /api/ai/verify — verify photo matches declared category + classify
+router.post('/verify', rateLimiters.ai, upload.single('photo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Photo required' });
+    const { city = 'Kolkata', season, declaredCategory, declaredType, description } = req.body;
+
+    // If no declared category (AI-decide escape hatch), fall back to classify
+    if (!declaredCategory) {
+      const result = await gemini.classifyIssue(req.file.buffer, { city, season });
+      return res.json({ ...result, match: true, matchConfidence: 100, detectedType: result.issueType, mismatchReason: null });
+    }
+
+    const result = await gemini.verifyReport(req.file.buffer, { city, season, declaredCategory, declaredType, description });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
 // POST /api/ai/translate — translate text via Google Translate API
 router.post('/translate', rateLimiters.ai, async (req, res, next) => {
   try {
