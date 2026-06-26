@@ -11,7 +11,7 @@ const DEMO_USERS = [
     password:    'Admin@123',
     displayName: 'KMC Admin',
     claims:      { admin: true },
-    firestoreCollection: null, // admin doc not needed
+    firestoreCollection: null,
   },
   {
     email:       'rajesh.kumar@kmc.gov.in',
@@ -19,23 +19,45 @@ const DEMO_USERS = [
     displayName: 'Rajesh Kumar',
     claims:      { officer: true },
     firestoreCollection: 'officers',
-    firestoreDocId: null, // will be found by email
+    firestoreDocId: null,
+  },
+  {
+    email:       'demo@communityhero.in',
+    password:    'Demo@123',
+    displayName: 'Demo Citizen — Arjun',
+    claims:      {},
+    uid:         'citizen_arjun_001', // force UID so seeded tickets/gamification link up
+    firestoreCollection: null,
   },
 ];
 
-async function getOrCreateUser(email, password, displayName) {
+async function getOrCreateUser(email, password, displayName, forcedUid) {
+  // If a forced UID is requested, try to fetch that user first
+  if (forcedUid) {
+    try {
+      const existing = await auth.getUser(forcedUid);
+      console.log(`  [exists by uid] ${email} (uid: ${existing.uid})`);
+      return existing;
+    } catch (err) {
+      if (err.code !== 'auth/user-not-found') throw err;
+    }
+  }
+
+  // Fall back to email lookup
   try {
     const existing = await auth.getUserByEmail(email);
     console.log(`  [exists] ${email} (uid: ${existing.uid})`);
     return existing;
   } catch (err) {
-    if (err.code === 'auth/user-not-found') {
-      const created = await auth.createUser({ email, password, displayName });
-      console.log(`  [created] ${email} (uid: ${created.uid})`);
-      return created;
-    }
-    throw err;
+    if (err.code !== 'auth/user-not-found') throw err;
   }
+
+  // Create new user, optionally with a forced UID
+  const params = { email, password, displayName };
+  if (forcedUid) params.uid = forcedUid;
+  const created = await auth.createUser(params);
+  console.log(`  [created] ${email} (uid: ${created.uid})`);
+  return created;
 }
 
 async function main() {
@@ -43,22 +65,21 @@ async function main() {
 
   for (const user of DEMO_USERS) {
     console.log(`\nProcessing: ${user.email}`);
-    const record = await getOrCreateUser(user.email, user.password, user.displayName);
+    const record = await getOrCreateUser(user.email, user.password, user.displayName, user.uid);
 
-    // Set / update password (in case it changed)
+    // Set / update password
     await auth.updateUser(record.uid, { password: user.password });
 
     // Set custom claims
     await auth.setCustomUserClaims(record.uid, user.claims);
     console.log(`  [claims] set ${JSON.stringify(user.claims)}`);
 
-    // Update Firestore officer doc with real UID
+    // Update Firestore officer doc with real UID (officers only)
     if (user.firestoreCollection) {
       const snap = await db.collection(user.firestoreCollection)
         .where('email', '==', user.email).limit(1).get();
       if (!snap.empty) {
         await snap.docs[0].ref.update({ uid: record.uid });
-        // Also move doc to correct ID if needed
         const docRef = db.collection(user.firestoreCollection).doc(record.uid);
         const existing = await docRef.get();
         if (!existing.exists) {
@@ -73,9 +94,10 @@ async function main() {
   }
 
   console.log('\n=== Done! ===');
-  console.log('Demo credentials are now active:');
-  console.log('  Admin:   admin@kmc.gov.in / Admin@123');
+  console.log('Demo credentials:');
+  console.log('  Admin:   admin@kmc.gov.in     / Admin@123');
   console.log('  Officer: rajesh.kumar@kmc.gov.in / Officer@123');
+  console.log('  Demo:    demo@communityhero.in  / Demo@123  (citizen_arjun_001 — pre-loaded tickets + RTI)');
   process.exit(0);
 }
 
