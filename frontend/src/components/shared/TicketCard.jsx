@@ -25,7 +25,7 @@ function severityColor(s) {
   return '#1A7A4A';
 }
 
-export default function TicketCard({ ticket, linkBase = '/citizen/tickets', showOfficer = false }) {
+export default function TicketCard({ ticket, linkBase = '/track', showOfficer = false }) {
   if (!ticket) return null;
   const t = ticket;
   const sevColor = severityColor(t.severity || 5);
