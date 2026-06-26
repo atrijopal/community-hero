@@ -374,11 +374,26 @@ export default function PublicTracker() {
             </button>
 
             {canReopen && (
-              <Link to={`/citizen/tickets/${ticket.publicId}?action=reopen`}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border"
-                style={{ borderColor: '#D4730A', color: '#D4730A', backgroundColor: '#FEF3E7', borderRadius: '6px' }}>
-                <IconGhost size={14} stroke={1.5} /> Issue Not Fixed?
-              </Link>
+              <>
+                <input type="file" accept="image/*" id="reopen-photo" style={{ display: 'none' }}
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const fd = new FormData();
+                    fd.append('photo', file);
+                    try {
+                      await api.post(`/tickets/${ticket.id}/reopen`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      toast.success('Flagged as unresolved — it will be reviewed again.');
+                    } catch { toast.error('Could not reopen. Please sign in first.'); }
+                    e.target.value = '';
+                  }}
+                />
+                <button onClick={() => document.getElementById('reopen-photo').click()}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border"
+                  style={{ borderColor: '#D4730A', color: '#D4730A', backgroundColor: '#FEF3E7', borderRadius: '6px', cursor: 'pointer' }}>
+                  <IconGhost size={14} stroke={1.5} /> Issue Not Fixed?
+                </button>
+              </>
             )}
 
             {canRTI && (
