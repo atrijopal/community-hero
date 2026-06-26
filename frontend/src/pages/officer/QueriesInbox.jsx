@@ -6,7 +6,7 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useAuth } from '../../hooks/useAuth';
 import { useOfficerQueue } from '../../hooks/useTicket';
 import { db } from '../../firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { issueTypeLabel, timeAgo } from '../../utils/formatters';
 
 export default function QueriesInbox() {
@@ -20,11 +20,7 @@ export default function QueriesInbox() {
     const ticketIds = tickets.map(t => t.id).slice(0, 10);
     if (!ticketIds.length) { setLoading(false); return; }
     const unsub = onSnapshot(
-      query(
-        collection(db, 'ticket_logs'),
-        where('ticketId', 'in', ticketIds),
-        orderBy('timestamp', 'desc')
-      ),
+      query(collection(db, 'ticket_logs'), where('ticketId', 'in', ticketIds)),
       snap => {
         const byTicket = {};
         snap.docs

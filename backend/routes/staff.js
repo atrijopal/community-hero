@@ -6,12 +6,13 @@ const { adminOnly, officerOrAdmin } = require('../middleware/authMiddleware');
 router.get('/officers', officerOrAdmin, async (req, res, next) => {
   try {
     const { departmentId, ward, status = 'active', limit: lim = 50 } = req.query;
-    let q = db.collection('officers');
-    if (status)       q = q.where('status', '==', status);
-    if (departmentId) q = q.where('departmentId', '==', departmentId);
-    q = q.orderBy('name').limit(parseInt(lim));
+    // Single filter only — no orderBy combo to avoid composite index requirement; sort in JS
+    let q = db.collection('officers').limit(parseInt(lim));
+    if (status) q = q.where('status', '==', status);
     const snap = await q.get();
-    const officers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let officers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (departmentId) officers = officers.filter(o => o.departmentId === departmentId);
+    officers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     res.json({ officers });
   } catch (err) { next(err); }
 });
@@ -20,18 +21,16 @@ router.get('/officers', officerOrAdmin, async (req, res, next) => {
 router.get('/officers/assignable', adminOnly, async (req, res, next) => {
   try {
     const { departmentId, ward } = req.query;
-    let q = db.collection('officers').where('status', '==', 'active');
-    if (departmentId) q = q.where('departmentId', '==', departmentId);
-    const snap = await q.orderBy('activeCaseCount', 'asc').limit(20).get();
-    const officers = snap.docs.map(d => {
+    // status=active only — no orderBy or extra where to avoid composite index; sort in JS
+    const snap = await db.collection('officers').where('status', '==', 'active').limit(50).get();
+    let officers = snap.docs.map(d => {
       const { password, ...safe } = d.data();
       return { id: d.id, ...safe };
     });
-    // Filter by ward if provided (client-side since Firestore doesn't support array-contains with ordering)
-    const filtered = ward
-      ? officers.filter(o => !o.wardIds || o.wardIds.length === 0 || o.wardIds.includes(ward))
-      : officers;
-    res.json({ officers: filtered });
+    if (departmentId) officers = officers.filter(o => o.departmentId === departmentId);
+    if (ward) officers = officers.filter(o => !o.wardIds?.length || o.wardIds.includes(ward));
+    officers.sort((a, b) => (a.activeCaseCount ?? 0) - (b.activeCaseCount ?? 0));
+    res.json({ officers });
   } catch (err) { next(err); }
 });
 

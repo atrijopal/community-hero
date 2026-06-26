@@ -5,13 +5,15 @@ const runVerifyTimeout = async () => {
   const cutoff = new Date(now - 2 * 60 * 60 * 1000); // 2 hours ago
 
   try {
+    // Single equality filter only — range on createdAt requires composite index; filter in JS instead
     const snap = await db.collection('tickets')
       .where('verificationStatus', '==', 'PENDING')
-      .where('createdAt', '<', cutoff.toISOString())
       .get();
+    const cutoffISO = cutoff.toISOString();
 
     for (const doc of snap.docs) {
       const ticket = doc.data();
+      if (!ticket.createdAt || ticket.createdAt >= cutoffISO) continue;
       // Auto-verify if enough community upvotes (3+)
       if ((ticket.upvoteCount || 0) >= 3 || (ticket.verifierIds?.length || 0) >= 2) {
         await doc.ref.update({ verificationStatus: 'VERIFIED', updatedAt: now.toISOString() });

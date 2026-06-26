@@ -18,6 +18,7 @@ const ticketSchema = Joi.object({
   phone: Joi.string().pattern(/^\+?[1-9]\d{9,14}$/).optional().allow('', null),
   email: Joi.string().email().optional().allow('', null),
   aiSuggested: Joi.object().optional(),
+  hasMismatch: Joi.boolean().optional(),
 });
 
 module.exports = { ticketSchema };

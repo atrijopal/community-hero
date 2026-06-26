@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, doc, updateDoc } from 'firebase/firestore';
 
 export const useNotifications = (uid) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     if (!uid) return;
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    );
+    // No orderBy — avoids composite index; sort client-side
+    const q = query(collection(db, 'notifications'), where('userId', '==', uid), limit(20));
     const unsub = onSnapshot(q, (snap) => {
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const sorted = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const ta = a.createdAt?.seconds ?? 0;
+          const tb = b.createdAt?.seconds ?? 0;
+          return tb - ta;
+        });
+      setNotifications(sorted);
     });
     return unsub;
   }, [uid]);

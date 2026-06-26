@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconSparkles, IconCircleCheck, IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
+import { IconSparkles, IconCircleCheck, IconAlertTriangle, IconRefresh, IconWifiOff } from '@tabler/icons-react';
 import { ISSUE_TYPES, DEPARTMENTS } from '../../../utils/constants';
 
 const AIBadge = () => (
@@ -84,7 +84,22 @@ const ConfidenceBar = ({ confidence, reasoning }) => {
 const fieldClass = 'w-full border px-3 py-2.5 text-sm transition-colors';
 const fieldStyle = { borderColor: '#E5E2DE', borderRadius: '6px', color: '#4A4A48' };
 
-export default function Step2AIReview({ aiData, onConfirm, onRecategorize, loading }) {
+function AIErrorBanner() {
+  return (
+    <div className="flex items-start gap-3 p-3.5 border" style={{ backgroundColor: '#FFF8E0', borderColor: '#F5D56A', borderRadius: '8px' }}>
+      <IconWifiOff size={18} stroke={1.5} style={{ color: '#D4730A', flexShrink: 0, marginTop: 1 }} />
+      <div>
+        <p className="text-sm font-semibold" style={{ color: '#8B6600' }}>AI classification failed</p>
+        <p className="text-xs mt-0.5" style={{ color: '#7A7875' }}>
+          Could not reach the AI service (quota or network issue). Please fill in the fields below manually — your report will still be submitted.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function Step2AIReview({ aiData, aiError, onConfirm, onRecategorize }) {
+  // Component only mounts after aiData is ready — useState initializes with real values
   const [form, setForm] = useState({
     issueType:    aiData?.issueType    || '',
     category:     aiData?.category     || 'Infrastructure',
@@ -100,37 +115,35 @@ export default function Step2AIReview({ aiData, onConfirm, onRecategorize, loadi
     setEdited(e => ({ ...e, [field]: true }));
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-14 h-14 border-2 rounded-full animate-spin mx-auto mb-4"
-          style={{ borderColor: '#E5E2DE', borderTopColor: '#6B50B8' }} />
-        <p className="font-medium" style={{ color: '#4A4A48' }}>AI is verifying your report…</p>
-        <p className="text-sm mt-1" style={{ color: '#7A7875' }}>Checking photo + description match — 3–5 seconds</p>
-      </div>
-    );
-  }
-
   const sevColor = form.severity >= 9 ? '#C13B2A' : form.severity >= 4 ? '#D4730A' : '#1A7A4A';
 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: '#4A4A48' }}>AI Review &amp; Confirm</h2>
-        <p className="text-sm" style={{ color: '#7A7875' }}>Review AI suggestions — every field is editable</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: '#4A4A48' }}>
+          {aiError ? 'Fill in Details' : 'AI Review & Confirm'}
+        </h2>
+        <p className="text-sm" style={{ color: '#7A7875' }}>
+          {aiError ? 'AI is unavailable — fill in the fields below manually' : 'Review AI suggestions — every field is editable'}
+        </p>
       </div>
 
-      {/* Match / mismatch banner */}
-      <MatchBanner
-        match={aiData?.match}
-        matchConfidence={aiData?.matchConfidence}
-        detectedType={aiData?.detectedType}
-        declaredCategory={aiData?.declaredCategory}
-        onRecategorize={onRecategorize}
-      />
-
-      {aiData?.confidence !== undefined && (
-        <ConfidenceBar confidence={aiData.confidence} reasoning={aiData.reasoning} />
+      {/* AI error or match/confidence banners */}
+      {aiError ? (
+        <AIErrorBanner />
+      ) : (
+        <>
+          <MatchBanner
+            match={aiData?.match}
+            matchConfidence={aiData?.matchConfidence}
+            detectedType={aiData?.detectedType}
+            declaredCategory={aiData?.declaredCategory}
+            onRecategorize={onRecategorize}
+          />
+          {aiData?.confidence > 0 && (
+            <ConfidenceBar confidence={aiData.confidence} reasoning={aiData.reasoning} />
+          )}
+        </>
       )}
 
       {/* Issue Type */}
@@ -220,9 +233,15 @@ export default function Step2AIReview({ aiData, onConfirm, onRecategorize, loadi
         </p>
       )}
 
+      {(!form.issueType || !form.departmentId || !form.description.trim()) && (
+        <p className="text-xs px-3 py-2" style={{ color: '#8B6600', backgroundColor: '#FFF8E0', borderRadius: '6px' }}>
+          Issue type, department, and description are required before continuing.
+        </p>
+      )}
+
       <button
         onClick={() => onConfirm({ ...form, aiSuggested: aiData, hasMismatch: aiData?.match === false })}
-        disabled={!form.issueType || !form.departmentId || !form.description}
+        disabled={!form.issueType || !form.departmentId || !form.description.trim()}
         className="w-full text-white py-3 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}
       >

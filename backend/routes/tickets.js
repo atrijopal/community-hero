@@ -25,33 +25,51 @@ router.post('/', rateLimiters.report, optionalAuth, upload.single('photo'), asyn
     const processedPhoto = await processPhoto(req.file.buffer);
     const geohash = ngeohash.encode(body.location.lat, body.location.lng, 7);
 
-    // Duplicate check
+    // Duplicate check — single equality filter only; geohash prefix checked in JS
+    // (geohash range + issueType equality combo requires composite index — avoiding that)
+    const CLOSED_STATUSES = new Set(['RESOLVED', 'REJECTED', 'CLOSED_OVERRIDE']);
+    const geohashPrefix = geohash.substring(0, 6);
     const dupCheck = await db.collection('tickets')
-      .where('location.geohash', '>=', geohash.substring(0, 6))
-      .where('location.geohash', '<=', geohash.substring(0, 6) + '')
       .where('issueType', '==', body.issueType)
-      .where('status', 'not-in', ['RESOLVED', 'REJECTED', 'CLOSED_OVERRIDE'])
-      .limit(3)
+      .limit(30)
       .get();
 
-    if (!dupCheck.empty) {
-      const dupData = dupCheck.docs[0].data();
-      if (dupData.photos?.report) {
-        try {
-          const dupResult = await gemini.detectDuplicate(processedPhoto, dupData.photos.report);
-          if (dupResult?.is_duplicate && dupResult?.confidence >= 60) {
-            return res.status(409).json({
-              duplicate: true,
-              existingTicket: {
-                publicId:  dupData.publicId,
-                issueType: dupData.issueType,
-                status:    dupData.status,
-                address:   dupData.location?.address,
-              }
-            });
-          }
-        } catch (_) {} // duplicate check failure is non-fatal
-      }
+    const openDups = dupCheck.docs.filter(d => {
+      const data = d.data();
+      return !CLOSED_STATUSES.has(data.status) && data.location?.geohash?.startsWith(geohashPrefix);
+    });
+    if (openDups.length) {
+      const dupData = openDups[0].data();
+      try {
+        const dupResult = await gemini.detectDuplicate(
+          processedPhoto,
+          dupData.photos?.report || null,
+          {
+            newIssueType:        body.issueType,
+            newDescription:      body.description,
+            existingIssueType:   dupData.issueType,
+            existingDescription: dupData.description,
+          },
+        );
+        if (dupResult?.is_duplicate && dupResult?.confidence >= 60) {
+          return res.status(409).json({
+            duplicate:       true,
+            matchReason:     dupResult.reason,
+            matchConfidence: dupResult.confidence,
+            existingTicket:  {
+              publicId:    dupData.publicId,
+              issueType:   dupData.issueType,
+              status:      dupData.status,
+              severity:    dupData.severity,
+              dangerLevel: dupData.dangerLevel,
+              description: dupData.description,
+              address:     dupData.location?.address,
+              createdAt:   dupData.createdAt,
+              photoUrl:    dupData.photos?.report || null,
+            },
+          });
+        }
+      } catch (_) {} // duplicate check failure is non-fatal
     }
 
     // Generate ticket ID
@@ -136,7 +154,7 @@ router.post('/', rateLimiters.report, optionalAuth, upload.single('photo'), asyn
       slaDeadline: slaDeadline.toISOString(),
       trackUrl:    `${process.env.FRONTEND_URL || ''}/track/${publicId}`,
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error('[POST /tickets] Error:', err.message, err.stack?.split('\n')[1]); next(err); }
 });
 
 // ---------- GET / — list tickets (officer/admin) ----------
@@ -148,13 +166,16 @@ router.get('/', authMiddleware, officerOrAdmin, async (req, res, next) => {
     if (departmentId) q = q.where('departmentId', '==', departmentId);
     if (ward)         q = q.where('location.ward', '==', ward);
     if (officerId)    q = q.where('assignedOfficerId', '==', officerId);
-    q = q.orderBy('createdAt', 'desc').limit(parseInt(lim));
+    // No orderBy — avoids composite index requirement when filters are combined; sort in JS
+    q = q.limit(parseInt(lim));
 
     const snap = await q.get();
-    const tickets = snap.docs.map(d => {
-      const { internalNotes, citizenPhone, citizenEmail, ...pub } = d.data();
-      return { id: d.id, ...pub };
-    });
+    const tickets = snap.docs
+      .map(d => {
+        const { internalNotes, citizenPhone, citizenEmail, ...pub } = d.data();
+        return { id: d.id, ...pub };
+      })
+      .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
     res.json({ tickets, count: tickets.length });
   } catch (err) { next(err); }
 });
@@ -394,11 +415,14 @@ router.post('/:id/rate', authMiddleware, async (req, res, next) => {
 // ---------- GET /:id/logs — ticket audit trail ----------
 router.get('/:id/logs', async (req, res, next) => {
   try {
+    // No orderBy — avoids composite index; sort by timestamp in JS
     const snap = await db.collection('ticket_logs')
       .where('ticketId', '==', req.params.id)
-      .orderBy('timestamp', 'asc')
       .get();
-    res.json({ logs: snap.docs.map(d => d.data()) });
+    const logs = snap.docs
+      .map(d => d.data())
+      .sort((a, b) => (a.timestamp > b.timestamp ? 1 : -1));
+    res.json({ logs });
   } catch (err) { next(err); }
 });
 

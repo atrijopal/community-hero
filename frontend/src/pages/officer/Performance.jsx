@@ -3,7 +3,7 @@ import Navbar from '../../components/shared/Navbar';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, limit } from 'firebase/firestore';
 import { timeAgo } from '../../utils/formatters';
 
 function ScoreMeter({ score }) {
@@ -44,13 +44,13 @@ export default function Performance() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, 'officer_logs'),
-      where('officerId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    );
-    return onSnapshot(q, snap => setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const q = query(collection(db, 'officer_logs'), where('officerId', '==', user.uid), limit(20));
+    return onSnapshot(q, snap => {
+      const sorted = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      setLogs(sorted);
+    });
   }, [user?.uid]);
 
   if (loading) return <div className="min-h-screen" style={{ backgroundColor: '#F5F3F0' }}><Navbar /><LoadingSpinner text="Loading performance…" /></div>;

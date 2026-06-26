@@ -1,8 +1,17 @@
 require('dotenv').config();
 const fetch = require('node-fetch');
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const GEMINI_FC_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// Model cascade: ordered by cost/speed, falls through on quota or overload
+// gemini-2.0-flash free tier is often exhausted; 2.5-flash-lite is the reliable fallback
+const MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+];
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_URL = `${GEMINI_BASE}/gemini-2.0-flash:generateContent`;
+const GEMINI_FC_URL = GEMINI_URL;
 
 // Quota tracker
 const quota = { daily: 0, minute: 0, lastMinuteReset: Date.now(), lastDayReset: Date.now() };
@@ -32,12 +41,9 @@ const imageToBase64 = async (urlOrBuffer) => {
   return { inlineData: { data: buffer.toString('base64'), mimeType: 'image/jpeg' } };
 };
 
-const callGemini = async (parts) => {
-  checkQuota();
-  quota.daily++;
-  quota.minute++;
-
-  const response = await fetch(GEMINI_URL, {
+const callGeminiWithModel = async (model, parts) => {
+  const url = `${GEMINI_BASE}/${model}:generateContent`;
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -55,14 +61,40 @@ const callGemini = async (parts) => {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(`Gemini API error: ${err.error?.message || response.status}`);
+    const msg = err.error?.message || `HTTP ${response.status}`;
+    const isRetryable = response.status === 429
+      || response.status === 503
+      || msg.includes('quota')
+      || msg.includes('RESOURCE_EXHAUSTED')
+      || msg.includes('high demand')
+      || msg.includes('overloaded')
+      || msg.includes('retry');
+    throw Object.assign(new Error(`Gemini [${model}]: ${msg}`), { isRetryable });
   }
 
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Empty Gemini response');
-
   return JSON.parse(text);
+};
+
+const callGemini = async (parts) => {
+  checkQuota();
+  quota.daily++;
+  quota.minute++;
+
+  for (const model of MODELS) {
+    try {
+      return await callGeminiWithModel(model, parts);
+    } catch (err) {
+      if (err.isRetryable) {
+        console.warn(`[Gemini] ${model} unavailable (${err.message.substring(0, 60)}), trying next model…`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw Object.assign(new Error('All Gemini models unavailable. Check quota at https://ai.google.dev/'), { status: 503 });
 };
 
 // 1. Classify issue from photo
@@ -131,16 +163,15 @@ const detectGhost = async (newPhotoUrl, originalPhotoUrl, resolutionPhotoUrl) =>
   ]);
 };
 
-// 4. Detect duplicate
-const detectDuplicate = async (newPhotoBuffer, existingPhotoUrl) => {
-  const [newImg, existImg] = await Promise.all([
-    imageToBase64(newPhotoBuffer),
-    imageToBase64(existingPhotoUrl),
-  ]);
-  return await callGemini([
-    { text: require('../prompts/detectDuplicate')() },
-    newImg, existImg,
-  ]);
+// 4. Detect duplicate — compares both images AND text descriptions
+const detectDuplicate = async (newPhotoBuffer, existingPhotoUrl, textContext = {}) => {
+  const parts = [{ text: require('../prompts/detectDuplicate')(textContext) }];
+  // Attach photos when available — AI uses them as additional signal
+  try { parts.push(await imageToBase64(newPhotoBuffer)); } catch (_) {}
+  if (existingPhotoUrl) {
+    try { parts.push(await imageToBase64(existingPhotoUrl)); } catch (_) {}
+  }
+  return await callGemini(parts);
 };
 
 // 5. NLP query bot with function calling (Feature 2)

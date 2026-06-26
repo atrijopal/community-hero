@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   IconMapPin, IconUser, IconCalendar, IconClock, IconThumbUp,
   IconAlertTriangle, IconSparkles, IconArrowLeft, IconPhoto,
@@ -12,7 +12,7 @@ import PhotoViewer from '../components/shared/PhotoViewer';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import { formatDate, daysAgo } from '../utils/formatters';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
@@ -24,8 +24,15 @@ function TimelineTab({ ticketId }) {
 
   useEffect(() => {
     if (!ticketId) return;
-    const q = query(collection(db, 'ticket_logs'), where('ticketId', '==', ticketId), orderBy('timestamp', 'desc'));
-    return onSnapshot(q, snap => setLogs(snap.docs.map(d => d.data())), () => {});
+    const q = query(collection(db, 'ticket_logs'), where('ticketId', '==', ticketId));
+    return onSnapshot(q, snap => {
+      const sorted = snap.docs.map(d => d.data()).sort((a, b) => {
+        const ta = a.timestamp?.seconds ?? 0;
+        const tb = b.timestamp?.seconds ?? 0;
+        return tb - ta;
+      });
+      setLogs(sorted);
+    }, () => {});
   }, [ticketId]);
 
   const ACTION_COLOR = {
@@ -214,6 +221,7 @@ function EvidenceReportCard({ evidenceReport }) {
 
 export default function PublicTracker() {
   const { id }              = useParams();
+  const navigate            = useNavigate();
   const { ticket, loading, error } = useTicket(id);
   const [tab, setTab]       = useState('timeline');
   const [upvoted, setUpvoted]   = useState(false);
@@ -268,11 +276,13 @@ export default function PublicTracker() {
       {/* Minimal header */}
       <nav className="bg-white sticky top-0 z-50 border-b" style={{ borderColor: '#E5E2DE' }}>
         <div className="max-w-3xl mx-auto px-4 flex items-center h-12 gap-3">
-          <Link to="/" className="flex items-center gap-1.5 text-sm transition-colors" style={{ color: '#7A7875' }}
+          <button onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
+            className="flex items-center gap-1.5 text-sm transition-colors"
+            style={{ color: '#7A7875', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             onMouseEnter={e => e.currentTarget.style.color = '#C13B2A'}
             onMouseLeave={e => e.currentTarget.style.color = '#7A7875'}>
-            <IconArrowLeft size={14} stroke={1.5} /> Home
-          </Link>
+            <IconArrowLeft size={14} stroke={1.5} /> Back
+          </button>
           <span style={{ color: '#E5E2DE' }}>/</span>
           <span className="font-mono text-sm tracking-wider" style={{ color: '#4A4A48' }}>{ticket.publicId}</span>
         </div>

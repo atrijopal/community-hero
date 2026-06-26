@@ -43,21 +43,33 @@ export default function WardMap() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold" style={{ color: '#4A4A48' }}>Ward Map</h1>
           <div className="flex gap-2">
-            {FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className="px-3 py-1.5 text-sm font-medium border transition-colors"
-                style={{
-                  backgroundColor: filter === f.value ? '#C13B2A' : 'white',
-                  color: filter === f.value ? 'white' : '#7A7875',
-                  borderColor: filter === f.value ? '#C13B2A' : '#E5E2DE',
-                  borderRadius: '6px',
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
+            {FILTERS.map(f => {
+              const count = f.value === 'all'        ? tickets.length
+                          : f.value === 'unassigned' ? tickets.filter(t => t.status === 'UNASSIGNED').length
+                          : f.value === 'critical'   ? tickets.filter(t => t.severity >= 9).length
+                          : f.value === 'ghost'      ? tickets.filter(t => t.status === 'GHOST_FLAGGED').length
+                          : 0;
+              return (
+                <button
+                  key={f.value}
+                  onClick={() => setFilter(f.value)}
+                  className="px-3 py-1.5 text-sm font-medium border transition-colors flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: filter === f.value ? '#C13B2A' : 'white',
+                    color: filter === f.value ? 'white' : '#7A7875',
+                    borderColor: filter === f.value ? '#C13B2A' : '#E5E2DE',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {f.label}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: '10px',
+                    backgroundColor: filter === f.value ? 'rgba(255,255,255,0.25)' : '#F5F3F0',
+                    color: filter === f.value ? 'white' : '#7A7875',
+                  }}>{count}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
         <CommunityMap

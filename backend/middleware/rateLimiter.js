@@ -9,7 +9,8 @@ const rateLimiters = {
   }),
   report: rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: 5,
+    max: 100,
+    skip: () => process.env.NODE_ENV !== 'production',
     keyGenerator: (req) => req.ip,
     message: { error: 'Too many reports. Try again in an hour.' },
   }),

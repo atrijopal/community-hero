@@ -25,15 +25,17 @@ const runGhostCheck = async () => {
       const prefix  = ticket.location?.geohash?.substring(0, 6);
       if (!prefix) continue;
 
+      // Geohash range + issueType only — no createdAt range (avoids composite index); filter date in JS
       const newSnap = await db.collection('tickets')
         .where('location.geohash', '>=', prefix)
         .where('location.geohash', '<=', prefix + '')
         .where('issueType', '==', ticket.issueType)
-        .where('createdAt', '>', ticket.resolvedAt || ticket.updatedAt)
         .get();
 
+      const afterDate = ticket.resolvedAt || ticket.updatedAt;
       for (const newDoc of newSnap.docs) {
         if (newDoc.id === doc.id) continue;
+        if (afterDate && newDoc.data().createdAt <= afterDate) continue;
         const newTicket = newDoc.data();
 
         try {

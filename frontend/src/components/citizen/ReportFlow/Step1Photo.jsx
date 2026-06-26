@@ -77,7 +77,7 @@ export default function Step1Photo({ onNext }) {
             className="w-full py-3.5 font-semibold text-base text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}
           >
-            Analyze with AI →
+            Continue →
           </button>
         </div>
       )}

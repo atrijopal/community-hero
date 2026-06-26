@@ -1,16 +1,28 @@
-module.exports = () => `
-You will receive two images:
-Image 1 (NEW): A newly submitted civic issue photo
-Image 2 (EXISTING): An already-reported issue photo from the same area
+module.exports = (ctx = {}) => `
+You will receive two civic issue reports from the SAME geographic area.
 
-Determine if these photos show the SAME physical issue at the SAME location.
-Return ONLY valid JSON:
+NEW report:
+- Issue type: ${ctx.newIssueType || 'unknown'}
+- Description: "${ctx.newDescription || ''}"
+
+EXISTING (already filed) report:
+- Issue type: ${ctx.existingIssueType || 'unknown'}
+- Description: "${ctx.existingDescription || ''}"
+
+You will also receive two images (NEW first, EXISTING second) if available.
+
+Judge whether these represent the SAME unresolved physical problem at the SAME spot.
+Use ALL available signals: image similarity, description overlap, issue type match.
+
+Return ONLY valid JSON (no markdown):
 {
   "is_duplicate": <boolean>,
   "confidence": <integer 0-100>,
-  "reason": "<one sentence explanation>"
+  "reason": "<one sentence — what matched or didn't>"
 }
 
-Be conservative: only flag as duplicate if clearly the same issue and location.
-Different issues at the same location are NOT duplicates.
+Rules:
+- Only flag duplicate if SAME issue AND SAME spot. Different potholes on the same street are NOT duplicates.
+- If images are unavailable or unclear, rely more on descriptions.
+- Be conservative: prefer false negative over false positive.
 `;
