@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { IconRobot, IconPlayerPlay, IconRefresh, IconCheck, IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { IconRobot, IconPlayerPlay, IconRefresh, IconCheck, IconX, IconChevronDown, IconChevronUp, IconScale, IconAlertTriangle } from '@tabler/icons-react';
 import Navbar from '../../components/shared/Navbar';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase';
-import { collection, onSnapshot, query, limit, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, limit, where, getDocs } from 'firebase/firestore';
 
 const STEP_ICONS = { classify: '🔍', find_officer: '👤', assign: '✅', sla: '⏱' };
 const STEP_LABELS = { classify: 'Classify Issue', find_officer: 'Find Officer', assign: 'Auto-Assign', sla: 'Set SLA' };
@@ -105,14 +105,45 @@ function RunButton({ label, icon: Icon, color, onClick, loading }) {
   );
 }
 
+const SLA_ACTION_LABELS = {
+  RTI_GENERATED:         { label: 'RTI Filed by AI',      color: '#C13B2A', icon: '📄' },
+  FIRST_APPEAL_GENERATED:{ label: 'Appeal Generated',     color: '#C13B2A', icon: '⚖️' },
+  AUTO_ESCALATED:        { label: 'Auto-Escalated',       color: '#D4730A', icon: '🚨' },
+  GHOST_REOPEN:          { label: 'Ghost Re-opened',      color: '#8B1A1A', icon: '👻' },
+};
+
+function SLALogCard({ log }) {
+  const meta = SLA_ACTION_LABELS[log.action] || { label: log.action, color: '#4A4A48', icon: '•' };
+  const time = log.timestamp ? new Date(log.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 border bg-white" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
+      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm"
+        style={{ backgroundColor: '#FDF1EF' }}>{meta.icon}</div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold px-1.5 py-0.5 text-white" style={{ backgroundColor: meta.color, borderRadius: 3 }}>
+            SLA
+          </span>
+          <span className="text-xs font-semibold" style={{ color: '#4A4A48' }}>{meta.label}</span>
+          {log.ticketId && <span className="font-mono text-xs" style={{ color: '#C13B2A' }}>{log.ticketId}</span>}
+        </div>
+        <p className="text-xs mt-0.5" style={{ color: '#B8B5B0' }}>{time}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function AgentsPanel() {
   const [logs, setLogs]           = useState([]);
+  const [slaLogs, setSlaLogs]     = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [slaRunning, setSlaRunning]   = useState(false);
   const [triageRunning, setTriageRunning] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+  const [rtiCount, setRtiCount]   = useState(0);
+  const [appealCount, setAppealCount] = useState(0);
 
-  // Live feed from Firestore
+  // Triage agent logs (agent_logs collection)
   useEffect(() => {
     const q = query(collection(db, 'agent_logs'), limit(50));
     return onSnapshot(q, snap => {
@@ -122,6 +153,27 @@ export default function AgentsPanel() {
       setLogsLoading(false);
     }, () => setLogsLoading(false));
   }, []);
+
+  // SLA agent logs (ticket_logs with SLA actions)
+  useEffect(() => {
+    const slaActions = ['RTI_GENERATED', 'FIRST_APPEAL_GENERATED', 'AUTO_ESCALATED', 'GHOST_REOPEN'];
+    const q = query(collection(db, 'ticket_logs'), limit(100));
+    return onSnapshot(q, snap => {
+      const data = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(l => slaActions.includes(l.action))
+        .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+      setSlaLogs(data);
+    });
+  }, []);
+
+  // Count RTI_FILED and appeal tickets
+  useEffect(() => {
+    getDocs(query(collection(db, 'tickets'), where('status', '==', 'RTI_FILED')))
+      .then(s => setRtiCount(s.size)).catch(() => {});
+    getDocs(query(collection(db, 'tickets'), where('appealGenerated', '==', true)))
+      .then(s => setAppealCount(s.size)).catch(() => {});
+  }, [lastResult]); // re-count after any run
 
   const runSLACheck = async () => {
     setSlaRunning(true);
@@ -146,8 +198,8 @@ export default function AgentsPanel() {
   };
 
   const triagedCount  = logs.filter(l => l.type === 'TRIAGE').length;
-  const slaCount      = logs.filter(l => l.type === 'SLA_CHECK').length;
   const successCount  = logs.filter(l => l.success).length;
+  const allActivity   = logs.length + slaLogs.length;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F3F0' }}>
@@ -166,11 +218,12 @@ export default function AgentsPanel() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
-            { label: 'Triage Runs', value: triagedCount, color: '#6B50B8' },
-            { label: 'Successful', value: successCount, color: '#1A7A4A' },
-            { label: 'In Activity Log', value: logs.length, color: '#4A4A48' },
+            { label: 'Auto-Triaged',   value: triagedCount,  color: '#6B50B8' },
+            { label: 'RTI Filed',      value: rtiCount,       color: '#C13B2A' },
+            { label: 'Appeals Filed',  value: appealCount,    color: '#D4730A' },
+            { label: 'Total Events',   value: allActivity,    color: '#4A4A48' },
           ].map(s => (
             <div key={s.label} className="bg-white border p-4 text-center" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
               <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
@@ -249,7 +302,7 @@ export default function AgentsPanel() {
           </h2>
           {logsLoading ? (
             <LoadingSpinner />
-          ) : logs.length === 0 ? (
+          ) : (logs.length === 0 && slaLogs.length === 0) ? (
             <div className="text-center py-12 border bg-white" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
               <p className="text-3xl mb-3">🤖</p>
               <p className="text-sm font-medium" style={{ color: '#4A4A48' }}>No agent activity yet</p>
@@ -257,6 +310,9 @@ export default function AgentsPanel() {
             </div>
           ) : (
             <div className="space-y-2">
+              {/* SLA events first (most impactful) */}
+              {slaLogs.map(log => <SLALogCard key={log.id} log={log} />)}
+              {/* Triage agent chains */}
               {logs.map(log => <AgentLogCard key={log.id} log={log} />)}
             </div>
           )}
