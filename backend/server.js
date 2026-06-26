@@ -9,6 +9,7 @@ const authRoutes      = require('./routes/auth');
 const staffRoutes     = require('./routes/staff');
 const aiRoutes        = require('./routes/ai');
 const analyticsRoutes = require('./routes/analytics');
+const agentRoutes     = require('./routes/agents');
 
 const { authMiddleware } = require('./middleware/authMiddleware');
 const { rateLimiters }   = require('./middleware/rateLimiter');
@@ -39,6 +40,7 @@ app.use('/api/auth',      rateLimiters.auth,    authMiddleware, authRoutes);
 app.use('/api/staff',     rateLimiters.general, authMiddleware, staffRoutes);
 app.use('/api/ai',        rateLimiters.ai,      aiRoutes);
 app.use('/api/analytics', rateLimiters.general, authMiddleware, analyticsRoutes);
+app.use('/api/agents',   rateLimiters.general, agentRoutes);
 
 // Serve React frontend in production
 if (process.env.NODE_ENV === 'production') {

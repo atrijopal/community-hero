@@ -20,14 +20,16 @@ import MyQueue          from './pages/officer/MyQueue';
 import QueriesInbox     from './pages/officer/QueriesInbox';
 import Performance      from './pages/officer/Performance';
 
-import AdminOverview   from './pages/admin/AdminOverview';
-import UnassignedQueue from './pages/admin/UnassignedQueue';
-import AllTickets      from './pages/admin/AllTickets';
-import StaffManagement from './pages/admin/StaffManagement';
-import WardMap         from './pages/admin/WardMap';
-import Reports         from './pages/admin/Reports';
-import Predictions     from './pages/admin/Predictions';
-import SystemSettings  from './pages/admin/SystemSettings';
+import AdminOverview    from './pages/admin/AdminOverview';
+import UnassignedQueue  from './pages/admin/UnassignedQueue';
+import AllTickets       from './pages/admin/AllTickets';
+import StaffManagement  from './pages/admin/StaffManagement';
+import WardMap          from './pages/admin/WardMap';
+import Reports          from './pages/admin/Reports';
+import Predictions      from './pages/admin/Predictions';
+import SystemSettings   from './pages/admin/SystemSettings';
+import AgentsPanel      from './pages/admin/AgentsPanel';
+import DuplicatesManager from './pages/admin/DuplicatesManager';
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-screen" style={{ backgroundColor: '#F5F3F0' }}>
@@ -78,8 +80,10 @@ export default function App() {
             <Route path="/admin/staff"       element={<RoleGuard role="admin"><StaffManagement /></RoleGuard>} />
             <Route path="/admin/map"         element={<RoleGuard role="admin"><WardMap /></RoleGuard>} />
             <Route path="/admin/reports"     element={<RoleGuard role="admin"><Reports /></RoleGuard>} />
-            <Route path="/admin/predictions" element={<RoleGuard role="admin"><Predictions /></RoleGuard>} />
-            <Route path="/admin/settings"    element={<RoleGuard role="admin"><SystemSettings /></RoleGuard>} />
+            <Route path="/admin/predictions"  element={<RoleGuard role="admin"><Predictions /></RoleGuard>} />
+            <Route path="/admin/settings"     element={<RoleGuard role="admin"><SystemSettings /></RoleGuard>} />
+            <Route path="/admin/agents"       element={<RoleGuard role="admin"><AgentsPanel /></RoleGuard>} />
+            <Route path="/admin/duplicates"   element={<RoleGuard role="admin"><DuplicatesManager /></RoleGuard>} />
           </Routes>
         </BrowserRouter>
       </LanguageProvider>

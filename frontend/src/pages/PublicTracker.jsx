@@ -347,18 +347,30 @@ export default function PublicTracker() {
             ))}
           </div>
 
+          {/* Community verification banner */}
+          {upvoteCount >= 3 && (
+            <div className="flex items-center gap-2 px-3 py-2 mb-2 text-sm font-medium"
+              style={{ backgroundColor: '#E8F5EE', borderRadius: '6px', color: '#1A7A4A' }}>
+              <span>👥</span>
+              <span>
+                <strong>{upvoteCount} citizens</strong> have independently corroborated this issue
+                {upvoteCount >= 10 && ' — Community-verified ✓'}
+              </span>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-2 flex-wrap">
             <button onClick={handleUpvote} disabled={upvoted}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border transition-colors disabled:opacity-60"
               style={{
-                borderColor: upvoted ? '#C13B2A' : '#E5E2DE',
-                color: upvoted ? '#C13B2A' : '#4A4A48',
-                backgroundColor: upvoted ? '#FDF1EF' : 'white',
+                borderColor: upvoted ? '#1A7A4A' : '#E5E2DE',
+                color: upvoted ? '#1A7A4A' : '#4A4A48',
+                backgroundColor: upvoted ? '#E8F5EE' : 'white',
                 borderRadius: '6px',
               }}>
               <IconThumbUp size={14} stroke={1.5} />
-              {upvoted ? 'Upvoted' : 'Me Too'} ({upvoteCount})
+              {upvoted ? "I've seen this too ✓" : "I've seen this too"} ({upvoteCount})
             </button>
 
             {canReopen && (

@@ -19,6 +19,8 @@ const ticketSchema = Joi.object({
   email: Joi.string().email().optional().allow('', null),
   aiSuggested: Joi.object().optional(),
   hasMismatch: Joi.boolean().optional(),
+  bypassDuplicateOf:       Joi.string().optional().allow('', null),
+  duplicateMatchConfidence: Joi.number().optional(),
 });
 
 module.exports = { ticketSchema };

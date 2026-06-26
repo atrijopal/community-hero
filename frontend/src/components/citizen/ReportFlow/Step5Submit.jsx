@@ -10,19 +10,30 @@ export default function Step5Submit({ photo, formData, location, contact, onRese
   const [duplicate, setDuplicate] = useState(null);
   const [dupMeta, setDupMeta]     = useState(null); // { matchReason, matchConfidence }
 
-  const handleSubmit = async () => {
+  const buildPayload = (bypassDuplicateOf = null) => {
+    const data = {
+      ...formData,
+      location,
+      phone:       contact.phone  || '',
+      email:       contact.email  || '',
+      aiSuggested: formData.aiSuggested,
+    };
+    if (bypassDuplicateOf) {
+      data.bypassDuplicateOf      = bypassDuplicateOf;
+      data.duplicateMatchConfidence = dupMeta?.matchConfidence || 0;
+    }
+    const payload = new FormData();
+    payload.append('photo', photo);
+    payload.append('data', JSON.stringify(data));
+    return payload;
+  };
+
+  const handleSubmit = async (bypassDuplicateOf = null) => {
     setLoading(true);
     try {
-      const payload = new FormData();
-      payload.append('photo', photo);
-      payload.append('data', JSON.stringify({
-        ...formData,
-        location,
-        phone:       contact.phone  || '',
-        email:       contact.email  || '',
-        aiSuggested: formData.aiSuggested,
-      }));
-      const res = await api.post('/tickets', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const res = await api.post('/tickets', buildPayload(bypassDuplicateOf), {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       setResult(res.data);
       toast.success('Report submitted!');
     } catch (err) {
@@ -121,7 +132,11 @@ export default function Step5Submit({ photo, formData, location, contact, onRese
             Track This Ticket
           </Link>
           <button
-            onClick={() => { setDuplicate(null); setDupMeta(null); handleSubmit(); }}
+            onClick={() => {
+              const existingId = duplicate?.publicId;
+              setDuplicate(null);
+              handleSubmit(existingId);
+            }}
             className="flex-1 border py-3 font-medium text-sm transition-colors hover:opacity-80"
             style={{ borderColor: '#E5E2DE', color: '#4A4A48', borderRadius: '6px' }}>
             It's Different — Submit

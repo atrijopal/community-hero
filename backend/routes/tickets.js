@@ -7,6 +7,7 @@ const { ticketSchema } = require('../schemas/ticketSchema');
 const { processPhoto } = require('../services/storageService');
 const { rateLimiters } = require('../middleware/rateLimiter');
 const { CITY_CODES }   = require('../config/constants');
+const { runTriageAgent } = require('../agents/triageAgent');
 const ngeohash = require('ngeohash');
 const crypto   = require('crypto');
 const multer   = require('multer');
@@ -131,6 +132,9 @@ router.post('/', rateLimiters.report, optionalAuth, upload.single('photo'), asyn
       rtiGenerated:   false,
       appealGenerated: false,
       slaBreached:    false,
+      // Duplicate tracking — set when citizen force-submits over a detected duplicate
+      probableDuplicateOf: body.bypassDuplicateOf || '',
+      duplicateMatchConfidence: body.bypassDuplicateOf ? (body.duplicateMatchConfidence || 0) : 0,
       createdAt:      new Date().toISOString(),
       updatedAt:      new Date().toISOString(),
     };
@@ -146,6 +150,11 @@ router.post('/', rateLimiters.report, optionalAuth, upload.single('photo'), asyn
     if (req.user?.uid) {
       awardXP(req.user.uid, 50, 'ticket_created').catch(console.error);
     }
+
+    // Run autonomous triage agent (async — non-blocking for response)
+    runTriageAgent(docId, { ...ticket, publicId }).catch(err =>
+      console.error('[Triage Agent] Background error:', err.message)
+    );
 
     res.status(201).json({
       ticketId:    publicId,

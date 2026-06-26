@@ -78,4 +78,4 @@ const start = () => {
   console.log('[SLA Worker] Started');
 };
 
-module.exports = { start };
+module.exports = { start, runSLACheck };

@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   IconHome, IconPlus, IconTicket, IconMap, IconTrophy, IconUser,
   IconLayoutDashboard, IconInbox, IconMessageCircle, IconChartBar,
-  IconUsers, IconSettings, IconBrain, IconMapPin,
+  IconUsers, IconSettings, IconBrain, IconMapPin, IconRobot, IconCopy,
   IconLogout, IconLogin,
 } from '@tabler/icons-react';
 import { auth } from '../../firebase';
@@ -36,6 +36,8 @@ const ROLE_LINKS = (tr) => ({
     { to: '/admin/map',           label: 'Ward Map',     icon: IconMapPin },
     { to: '/admin/reports',       label: 'Reports',      icon: IconChartBar },
     { to: '/admin/predictions',   label: 'AI Predictions', icon: IconBrain },
+    { to: '/admin/agents',        label: 'Agents',       icon: IconRobot },
+    { to: '/admin/duplicates',    label: 'Duplicates',   icon: IconCopy },
   ],
 });
 

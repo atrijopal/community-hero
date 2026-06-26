@@ -1,27 +1,23 @@
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useState, useCallback } from 'react';
+import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
+import { Link } from 'react-router-dom';
 
-delete L.Icon.Default.prototype._getIconUrl;
+const GKEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
-// Severity → visual config
 const SEV_CONFIG = {
-  CRITICAL: { color: '#C13B2A', bg: '#FDF1EF', size: 26, label: 'Critical (9-10)', ring: true },
-  HIGH:     { color: '#D4730A', bg: '#FEF3E7', size: 22, label: 'High (7-8)',      ring: false },
-  MEDIUM:   { color: '#D4730A', bg: '#FEF3E7', size: 18, label: 'Medium (4-6)',    ring: false },
-  LOW:      { color: '#1A7A4A', bg: '#E8F5EE', size: 14, label: 'Low (1-3)',       ring: false },
-  RESOLVED: { color: '#1A7A4A', bg: '#E8F5EE', size: 14, label: 'Resolved',        ring: false },
-  GHOST:    { color: '#8B1A1A', bg: '#F5EAEA', size: 22, label: 'Ghost Flagged',   ring: true  },
-  PREDICTED:{ color: '#6B50B8', bg: '#EDE9F8', size: 16, label: 'AI Prediction',   ring: false },
+  CRITICAL: { color: '#C13B2A', size: 28, label: 'Critical (9–10)' },
+  HIGH:     { color: '#D4730A', size: 22, label: 'High (7–8)' },
+  MEDIUM:   { color: '#D4730A', size: 17, label: 'Medium (4–6)' },
+  LOW:      { color: '#1A7A4A', size: 14, label: 'Low (1–3)' },
+  RESOLVED: { color: '#1A7A4A', size: 14, label: 'Resolved' },
+  GHOST:    { color: '#8B1A1A', size: 22, label: 'Ghost Flagged' },
+  PREDICTED:{ color: '#6B50B8', size: 16, label: 'AI Prediction' },
 };
 
-const STATUS_LABELS = {
-  UNASSIGNED:      'Unassigned',
-  ASSIGNED:        'Assigned',
-  IN_PROGRESS:     'In Progress',
-  RESOLVED:        'Resolved',
-  GHOST_FLAGGED:   'Ghost Flagged',
-  CLOSED_OVERRIDE: 'Closed',
+const STATUS_LABEL = {
+  UNASSIGNED: 'Unassigned', ASSIGNED: 'Assigned', IN_PROGRESS: 'In Progress',
+  RESOLVED: 'Resolved', GHOST_FLAGGED: 'Ghost Flagged', CLOSED_OVERRIDE: 'Closed',
+  ESCALATED: 'Escalated', RTI_FILED: 'RTI Filed',
 };
 
 const getSevKey = (severity, status) => {
@@ -33,63 +29,63 @@ const getSevKey = (severity, status) => {
   return 'LOW';
 };
 
-const createPin = (cfg, isPredicted = false) => {
-  const { color, size, ring } = cfg;
-  const pulse = ring
-    ? `<div style="position:absolute;inset:-4px;border-radius:50%;border:2px solid ${color};opacity:0.5;animation:pulse 1.5s infinite;"></div>`
-    : '';
-  return L.divIcon({
-    html: `
-      <div style="position:relative;width:${size}px;height:${size}px;">
-        ${pulse}
-        <div style="
-          width:${size}px;height:${size}px;border-radius:50%;
-          background:${color};border:2.5px solid white;
-          box-shadow:0 2px 8px rgba(0,0,0,0.35);
-          ${isPredicted ? `border-style:dashed;background:white;` : ''}
-          display:flex;align-items:center;justify-content:center;
-        ">
-          ${isPredicted ? `<div style="width:${size * 0.5}px;height:${size * 0.5}px;border-radius:50%;background:${color};"></div>` : ''}
-        </div>
-      </div>`,
-    className: '',
-    iconSize:   [size, size],
-    iconAnchor: [size / 2, size],
-    popupAnchor:[0, -size],
-    tooltipAnchor: [size / 2 + 2, -size / 2],
-  });
-};
-
-function SetView({ center, zoom }) {
-  const map = useMap();
-  useEffect(() => { map.setView(center, zoom); }, [center, zoom, map]);
-  return null;
+// Build a colored circle SVG icon — must be called after Google Maps SDK is loaded
+function makeIcon(color, size, dashed = false) {
+  const r   = size / 2 - 2;
+  const cx  = size / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+    <circle cx="${cx}" cy="${cx}" r="${r}"
+      fill="${dashed ? 'white' : color}"
+      stroke="${color}" stroke-width="2.5"
+      ${dashed ? 'stroke-dasharray="4 2"' : ''}/>
+    ${dashed ? `<circle cx="${cx}" cy="${cx}" r="${r * 0.45}" fill="${color}"/>` : ''}
+  </svg>`;
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    scaledSize: new window.google.maps.Size(size, size),
+    anchor:     new window.google.maps.Point(cx, cx),
+    labelOrigin: new window.google.maps.Point(cx, -6),
+  };
 }
+
+const MAP_OPTS = {
+  streetViewControl: false,
+  mapTypeControl:    false,
+  fullscreenControl: true,
+  scaleControl:      false,
+  zoomControl:       true,
+  clickableIcons:    false,
+  styles: [
+    { featureType: 'poi',             elementType: 'labels',      stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit.station', elementType: 'labels',      stylers: [{ visibility: 'off' }] },
+    { featureType: 'road',            elementType: 'geometry',    stylers: [{ lightness: 20 }] },
+    { featureType: 'water',           elementType: 'geometry',    stylers: [{ color: '#c9d8e8' }] },
+    { featureType: 'landscape',       elementType: 'geometry',    stylers: [{ color: '#f5f5f0' }] },
+  ],
+};
 
 function Legend() {
   const entries = [
-    { color: '#C13B2A', label: 'Critical (sev 9–10)', ring: true },
-    { color: '#D4730A', label: 'High / Medium',        ring: false },
-    { color: '#1A7A4A', label: 'Low / Resolved',       ring: false },
-    { color: '#8B1A1A', label: 'Ghost Flagged',         ring: true  },
-    { color: '#6B50B8', label: 'AI Prediction',         dashed: true },
+    { color: '#C13B2A', label: 'Critical (sev 9–10)',  dashed: false },
+    { color: '#D4730A', label: 'High / Medium',         dashed: false },
+    { color: '#1A7A4A', label: 'Low / Resolved',        dashed: false },
+    { color: '#8B1A1A', label: 'Ghost Flagged',         dashed: false },
+    { color: '#6B50B8', label: 'AI Prediction',         dashed: true  },
   ];
   return (
     <div style={{
-      position: 'absolute', bottom: 28, right: 10, zIndex: 999,
-      background: 'rgba(255,255,255,0.95)', border: '1px solid #E5E2DE',
-      borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: '18px',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.12)', minWidth: 150,
+      position: 'absolute', bottom: 32, right: 10, zIndex: 10,
+      background: 'rgba(255,255,255,0.96)', border: '1px solid #E5E2DE',
+      borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: '20px',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.12)', minWidth: 155, pointerEvents: 'none',
     }}>
-      <p style={{ fontWeight: 700, color: '#4A4A48', marginBottom: 6, fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Legend</p>
+      <p style={{ fontWeight: 700, color: '#4A4A48', marginBottom: 5, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Legend</p>
       {entries.map(e => (
-        <div key={e.label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+        <div key={e.label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <div style={{
-            width: 12, height: 12, borderRadius: '50%',
+            width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
             background: e.dashed ? 'white' : e.color,
             border: `2px ${e.dashed ? 'dashed' : 'solid'} ${e.color}`,
-            boxShadow: e.ring ? `0 0 0 2px ${e.color}40` : 'none',
-            flexShrink: 0,
           }} />
           <span style={{ color: '#4A4A48' }}>{e.label}</span>
         </div>
@@ -98,138 +94,151 @@ function Legend() {
   );
 }
 
-const SEV_BAR = (s) => {
-  const pct = (s / 10) * 100;
-  const clr = s >= 9 ? '#C13B2A' : s >= 7 ? '#D4730A' : s >= 4 ? '#D4730A' : '#1A7A4A';
+function SevBar({ severity }) {
+  const pct = (severity / 10) * 100;
+  const clr = severity >= 9 ? '#C13B2A' : severity >= 7 ? '#D4730A' : '#1A7A4A';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
       <div style={{ flex: 1, height: 4, background: '#F0EDE9', borderRadius: 2 }}>
         <div style={{ width: `${pct}%`, height: '100%', background: clr, borderRadius: 2 }} />
       </div>
-      <span style={{ fontSize: 10, color: clr, fontWeight: 700, minWidth: 30 }}>{s}/10</span>
+      <span style={{ fontSize: 10, color: clr, fontWeight: 700, minWidth: 30 }}>{severity}/10</span>
     </div>
   );
-};
+}
 
 export default function CommunityMap({
   tickets = [], predictions = [],
-  center = [22.5726, 88.3639], zoom = 13,
+  center = { lat: 22.5726, lng: 88.3639 }, zoom = 13,
   onTicketClick, height = '400px',
 }) {
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GKEY });
+  const [selected, setSelected]     = useState(null); // { type:'ticket'|'pred', data }
+  const [mapRef, setMapRef]         = useState(null);
+  const onLoad = useCallback(map => setMapRef(map), []);
+
+  if (!isLoaded) {
+    return (
+      <div style={{ height, width: '100%', border: '1px solid #E5E2DE', borderRadius: 8,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F3F0' }}>
+        <p style={{ color: '#B8B5B0', fontSize: 13 }}>Loading Google Maps…</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ height, width: '100%', border: '1px solid #E5E2DE', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
-      <style>{`
-        @keyframes pulse { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.4);opacity:0.2} }
-        .leaflet-tooltip { padding:3px 7px!important; border-radius:4px!important; font-size:10px!important; white-space:nowrap!important; }
-        .leaflet-popup-content-wrapper { border-radius:8px!important; box-shadow:0 4px 16px rgba(0,0,0,0.15)!important; }
-        .leaflet-popup-content { margin:12px 14px!important; }
-      `}</style>
-
-      <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
-        <SetView center={center} zoom={zoom} />
-
-        {/* CartoDB light tiles — cleaner than OSM */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>'
-          subdomains="abcd"
-          maxZoom={20}
-        />
-
+    <div style={{ height, width: '100%', border: '1px solid #E5E2DE', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+      <GoogleMap
+        mapContainerStyle={{ height: '100%', width: '100%' }}
+        center={center}
+        zoom={zoom}
+        options={MAP_OPTS}
+        onLoad={onLoad}
+        onClick={() => setSelected(null)}
+      >
+        {/* Ticket markers */}
         {tickets.map(ticket => {
           if (!ticket.location?.lat) return null;
           const key = getSevKey(ticket.severity, ticket.status);
           const cfg = SEV_CONFIG[key];
+          const isCritical = key === 'CRITICAL' || key === 'GHOST';
           return (
             <Marker
               key={ticket.publicId || ticket.id}
-              position={[ticket.location.lat, ticket.location.lng]}
-              icon={createPin(cfg)}
-            >
-              {/* Permanent label — ticket ID */}
-              <Tooltip permanent direction="right" offset={[4, 0]}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600, color: cfg.color }}>
-                  {ticket.publicId?.split('-').pop()}
-                </span>
-              </Tooltip>
-
-              <Popup>
-                <div style={{ minWidth: 200, fontFamily: 'system-ui, sans-serif' }}>
-                  {/* Header strip */}
-                  <div style={{ background: cfg.color, margin: '-12px -14px 10px', padding: '8px 12px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: 'monospace' }}>{ticket.publicId}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10 }}>
-                      {STATUS_LABELS[ticket.status] || ticket.status}
-                    </span>
-                  </div>
-
-                  <p style={{ fontWeight: 700, color: '#4A4A48', fontSize: 13, marginBottom: 2, textTransform: 'capitalize' }}>
-                    {ticket.issueType?.replace(/_/g, ' ')}
-                  </p>
-                  <p style={{ color: '#7A7875', fontSize: 11, marginBottom: 6 }}>
-                    {ticket.location?.address?.substring(0, 70)}{ticket.location?.address?.length > 70 ? '…' : ''}
-                  </p>
-
-                  {SEV_BAR(ticket.severity)}
-
-                  <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: '#7A7875' }}>
-                    <span>👍 {ticket.upvoteCount || 0} upvotes</span>
-                    {ticket.assignedOfficerName && <span>· {ticket.assignedOfficerName}</span>}
-                  </div>
-
-                  {ticket.description && (
-                    <p style={{ fontSize: 11, color: '#7A7875', marginTop: 6, borderTop: '1px solid #F0EDE9', paddingTop: 6 }}>
-                      {ticket.description?.substring(0, 100)}{ticket.description?.length > 100 ? '…' : ''}
-                    </p>
-                  )}
-
-                  {onTicketClick && (
-                    <button onClick={() => onTicketClick(ticket)} style={{
-                      marginTop: 8, color: 'white', fontSize: 11, fontWeight: 600,
-                      background: cfg.color, border: 'none', cursor: 'pointer', padding: '5px 10px',
-                      borderRadius: 4, width: '100%',
-                    }}>
-                      View full ticket →
-                    </button>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
+              position={{ lat: ticket.location.lat, lng: ticket.location.lng }}
+              icon={makeIcon(cfg.color, cfg.size)}
+              label={isCritical ? {
+                text: ticket.publicId?.split('-').pop() || '',
+                color: cfg.color,
+                fontSize: '9px',
+                fontWeight: '700',
+              } : undefined}
+              onClick={() => setSelected({ type: 'ticket', data: ticket })}
+            />
           );
         })}
 
+        {/* Prediction markers */}
         {predictions.map((pred, i) => (
           <Marker
             key={`pred-${i}`}
-            position={[pred.lat, pred.lng]}
-            icon={createPin(SEV_CONFIG.PREDICTED, true)}
-          >
-            <Tooltip permanent direction="right" offset={[4, 0]}>
-              <span style={{ color: '#6B50B8', fontWeight: 600 }}>AI</span>
-            </Tooltip>
-            <Popup>
-              <div style={{ minWidth: 190, fontFamily: 'system-ui, sans-serif' }}>
-                <div style={{ background: '#6B50B8', margin: '-12px -14px 10px', padding: '8px 12px', borderRadius: '8px 8px 0 0' }}>
-                  <span style={{ color: 'white', fontWeight: 700, fontSize: 12 }}>◆ AI Prediction</span>
+            position={{ lat: pred.lat, lng: pred.lng }}
+            icon={makeIcon('#6B50B8', 16, true)}
+            onClick={() => setSelected({ type: 'pred', data: pred })}
+          />
+        ))}
+
+        {/* Info window — ticket */}
+        {selected?.type === 'ticket' && (() => {
+          const t   = selected.data;
+          const key = getSevKey(t.severity, t.status);
+          const cfg = SEV_CONFIG[key];
+          return (
+            <InfoWindow
+              position={{ lat: t.location.lat, lng: t.location.lng }}
+              onCloseClick={() => setSelected(null)}
+            >
+              <div style={{ minWidth: 210, fontFamily: 'system-ui, sans-serif', paddingBottom: 4 }}>
+                {/* Coloured header */}
+                <div style={{ background: cfg.color, margin: '-8px -8px 10px', padding: '7px 10px', borderRadius: '4px 4px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: 'monospace' }}>{t.publicId}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10 }}>{STATUS_LABEL[t.status] || t.status}</span>
                 </div>
-                <p style={{ fontWeight: 700, color: '#4A4A48', fontSize: 13, marginBottom: 2, textTransform: 'capitalize' }}>
-                  {pred.issueType?.replace(/_/g, ' ')}
+
+                <p style={{ fontWeight: 700, color: '#4A4A48', fontSize: 13, marginBottom: 3, textTransform: 'capitalize' }}>
+                  {t.issueType?.replace(/_/g, ' ')}
                 </p>
-                <p style={{ color: '#B8B5B0', fontSize: 11, marginBottom: 6 }}>{pred.location}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                  <span style={{ color: '#6B50B8', fontWeight: 700 }}>{pred.probability}% probability</span>
-                  <span style={{ color: '#7A7875' }}>{pred.timeframe}</span>
-                </div>
-                {pred.reason && (
-                  <p style={{ fontSize: 11, color: '#7A7875', marginTop: 6, borderTop: '1px solid #F0EDE9', paddingTop: 6 }}>
-                    {pred.reason}
+                {t.location?.address && (
+                  <p style={{ color: '#7A7875', fontSize: 11, marginBottom: 4 }}>
+                    {t.location.address.substring(0, 75)}{t.location.address.length > 75 ? '…' : ''}
                   </p>
                 )}
+                <SevBar severity={t.severity} />
+                <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 11, color: '#7A7875' }}>
+                  <span>👍 {t.upvoteCount || 0}</span>
+                  {t.assignedOfficerName && <span>· {t.assignedOfficerName}</span>}
+                </div>
+                {onTicketClick && (
+                  <button onClick={() => onTicketClick(t)} style={{
+                    marginTop: 8, color: 'white', fontSize: 11, fontWeight: 600,
+                    background: cfg.color, border: 'none', cursor: 'pointer',
+                    padding: '5px 10px', borderRadius: 4, width: '100%',
+                  }}>
+                    View full ticket →
+                  </button>
+                )}
               </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+            </InfoWindow>
+          );
+        })()}
+
+        {/* Info window — AI prediction */}
+        {selected?.type === 'pred' && (
+          <InfoWindow
+            position={{ lat: selected.data.lat, lng: selected.data.lng }}
+            onCloseClick={() => setSelected(null)}
+          >
+            <div style={{ minWidth: 190, fontFamily: 'system-ui, sans-serif', paddingBottom: 4 }}>
+              <div style={{ background: '#6B50B8', margin: '-8px -8px 10px', padding: '7px 10px', borderRadius: '4px 4px 0 0' }}>
+                <span style={{ color: 'white', fontWeight: 700, fontSize: 12 }}>◆ AI Prediction</span>
+              </div>
+              <p style={{ fontWeight: 700, color: '#4A4A48', fontSize: 13, textTransform: 'capitalize' }}>
+                {selected.data.issueType?.replace(/_/g, ' ')}
+              </p>
+              <p style={{ color: '#B8B5B0', fontSize: 11, marginTop: 2 }}>{selected.data.location}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                <span style={{ color: '#6B50B8', fontWeight: 700 }}>{selected.data.probability}% probability</span>
+                <span style={{ color: '#7A7875' }}>{selected.data.timeframe}</span>
+              </div>
+              {selected.data.reason && (
+                <p style={{ fontSize: 11, color: '#7A7875', marginTop: 6, borderTop: '1px solid #F0EDE9', paddingTop: 5 }}>
+                  {selected.data.reason}
+                </p>
+              )}
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
 
       <Legend />
     </div>

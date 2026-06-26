@@ -1,16 +1,9 @@
-import { useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useState, useCallback } from 'react';
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { IconCurrentLocation, IconSearch, IconMapPin } from '@tabler/icons-react';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const GKEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
-// Fallback coords when user types address but doesn't pin map
 const CITY_CENTRES = {
   Kolkata:   { lat: 22.5726, lng: 88.3639 },
   Mumbai:    { lat: 19.0760, lng: 72.8777 },
@@ -21,78 +14,85 @@ const CITY_CENTRES = {
   Pune:      { lat: 18.5204, lng: 73.8567 },
 };
 
-function LocationPicker({ onSelect }) {
-  useMapEvents({ click(e) { onSelect(e.latlng); } });
-  return null;
-}
-
-function MapSync({ position }) {
-  const map  = useMap();
-  const prev = useRef(null);
-  if (position && (prev.current?.lat !== position.lat || prev.current?.lng !== position.lng)) {
-    map.flyTo([position.lat, position.lng], 16, { duration: 0.8 });
-    prev.current = position;
-  }
-  return null;
-}
+const MAP_OPTS = {
+  streetViewControl: false, mapTypeControl: false,
+  fullscreenControl: false, scaleControl: false,
+  clickableIcons: false,
+  styles: [
+    { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit.station', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  ],
+};
 
 async function reverseGeocode(lat, lng) {
   try {
-    const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-      headers: { 'User-Agent': 'CommunityHero/1.0' },
-    });
+    const res  = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GKEY}`
+    );
     const data = await res.json();
-    return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    if (data.status === 'OK' && data.results[0]) return data.results[0].formatted_address;
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   } catch {
-    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 }
 
 async function forwardGeocode(query) {
   try {
     const res  = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-      { headers: { 'User-Agent': 'CommunityHero/1.0' } },
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GKEY}`
     );
     const data = await res.json();
-    if (!data.length) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
+    if (data.status === 'OK' && data.results[0]) {
+      const loc = data.results[0].geometry.location;
+      return { lat: loc.lat, lng: loc.lng, display: data.results[0].formatted_address };
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-const inputStyle = { border: '1px solid #E5E2DE', borderRadius: '6px', padding: '10px 12px', fontSize: 14, width: '100%', outline: 'none', color: '#4A4A48' };
+const inputStyle = {
+  border: '1px solid #E5E2DE', borderRadius: '6px', padding: '10px 12px',
+  fontSize: 14, width: '100%', outline: 'none', color: '#4A4A48',
+};
 
 export default function Step3Location({ onNext }) {
-  const [position, setPosition]       = useState(null);
-  const [address, setAddress]         = useState('');
-  const [manualAddress, setManualAddress] = useState(''); // user-typed, not geocoded
-  const [ward, setWard]               = useState('');
-  const [city, setCity]               = useState('Kolkata');
-  const [loading, setLoading]         = useState(false);
-  const [gpsLoading, setGpsLoading]   = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching]     = useState(false);
-  const [searchErr, setSearchErr]     = useState('');
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GKEY });
 
-  const handleMapClick = async (latlng) => {
-    setPosition(latlng);
+  const [position, setPosition]         = useState(null);
+  const [address, setAddress]           = useState('');
+  const [manualAddress, setManualAddress] = useState('');
+  const [ward, setWard]                 = useState('');
+  const [city, setCity]                 = useState('Kolkata');
+  const [loading, setLoading]           = useState(false);
+  const [gpsLoading, setGpsLoading]     = useState(false);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [searching, setSearching]       = useState(false);
+  const [searchErr, setSearchErr]       = useState('');
+  const [mapCenter, setMapCenter]       = useState(CITY_CENTRES.Kolkata);
+
+  const handleMapClick = useCallback(async (e) => {
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    setPosition({ lat, lng });
     setManualAddress('');
     setLoading(true);
-    const addr = await reverseGeocode(latlng.lat, latlng.lng);
+    const addr = await reverseGeocode(lat, lng);
     setAddress(addr);
     setSearchQuery(addr);
     setLoading(false);
-  };
+  }, []);
 
   const handleGPS = () => {
     if (!navigator.geolocation) return;
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        setPosition({ lat, lng });
+      async ({ coords: { latitude: lat, longitude: lng } }) => {
+        const pos = { lat, lng };
+        setPosition(pos);
+        setMapCenter(pos);
         setManualAddress('');
         const addr = await reverseGeocode(lat, lng);
         setAddress(addr);
@@ -109,19 +109,20 @@ export default function Step3Location({ onNext }) {
     setSearchErr('');
     const result = await forwardGeocode(`${searchQuery}, ${city}, India`);
     if (result) {
-      setPosition({ lat: result.lat, lng: result.lng });
+      const pos = { lat: result.lat, lng: result.lng };
+      setPosition(pos);
+      setMapCenter(pos);
       setAddress(result.display);
       setManualAddress('');
       setSearchErr('');
     } else {
-      setSearchErr('Address not found on map. Your text will be saved as-is.');
+      setSearchErr('Address not found. Your text will be saved as typed.');
       setManualAddress(searchQuery);
       setPosition(null);
     }
     setSearching(false);
   };
 
-  // canProceed: either map pin set OR manual address typed
   const hasLocation = (position && address) || manualAddress.trim();
   const canProceed  = !!hasLocation && ward.trim() && city;
 
@@ -135,6 +136,16 @@ export default function Step3Location({ onNext }) {
       address: manualAddress || address,
     });
   };
+
+  const pinIcon = isLoaded ? {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+        <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 28 16 28S32 28 32 16C32 7.16 24.84 0 16 0z" fill="#C13B2A"/>
+        <circle cx="16" cy="16" r="7" fill="white"/>
+      </svg>`)}`,
+    scaledSize: new window.google.maps.Size(32, 44),
+    anchor:     new window.google.maps.Point(16, 44),
+  } : null;
 
   return (
     <div className="space-y-4">
@@ -156,12 +167,9 @@ export default function Step3Location({ onNext }) {
             placeholder="e.g. Brabourn Road, Lake Town, Ward 82…"
             style={{ ...inputStyle, flex: 1 }}
           />
-          <button
-            onClick={handleSearch}
-            disabled={searching || !searchQuery.trim()}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: '#4A4A48', borderRadius: '6px', whiteSpace: 'nowrap' }}
-          >
+          <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: '#4A4A48', borderRadius: '6px', whiteSpace: 'nowrap' }}>
             <IconSearch size={14} stroke={2} />
             {searching ? '…' : 'Find'}
           </button>
@@ -174,12 +182,9 @@ export default function Step3Location({ onNext }) {
       </div>
 
       {/* GPS */}
-      <button
-        onClick={handleGPS}
-        disabled={gpsLoading}
+      <button onClick={handleGPS} disabled={gpsLoading}
         className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium border transition"
-        style={{ borderColor: '#C13B2A', color: '#C13B2A', borderRadius: '6px', backgroundColor: 'white' }}
-      >
+        style={{ borderColor: '#C13B2A', color: '#C13B2A', borderRadius: '6px', backgroundColor: 'white' }}>
         <IconCurrentLocation size={15} stroke={1.5} />
         {gpsLoading ? 'Getting location…' : 'Use My Current Location'}
       </button>
@@ -197,7 +202,7 @@ export default function Step3Location({ onNext }) {
         />
         {manualAddress && (
           <p className="text-xs mt-1" style={{ color: '#7A7875' }}>
-            City-centre coordinates will be used for mapping. Officers will use the text address to locate the issue.
+            City-centre coordinates used for mapping. Officers will use your text to locate the issue.
           </p>
         )}
       </div>
@@ -209,18 +214,25 @@ export default function Step3Location({ onNext }) {
         <div className="flex-1 h-px" style={{ backgroundColor: '#E5E2DE' }} />
       </div>
 
-      {/* Map */}
-      <div className="overflow-hidden border" style={{ height: 240, borderRadius: '8px', borderColor: '#E5E2DE' }}>
-        <MapContainer
-          center={[22.5726, 88.3639]}
-          zoom={14}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <LocationPicker onSelect={handleMapClick} />
-          <MapSync position={position} />
-          {position && <Marker position={[position.lat, position.lng]} />}
-        </MapContainer>
+      {/* Google Map */}
+      <div className="overflow-hidden border" style={{ height: 260, borderRadius: '8px', borderColor: '#E5E2DE' }}>
+        {!isLoaded ? (
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F3F0' }}>
+            <p style={{ color: '#B8B5B0', fontSize: 13 }}>Loading map…</p>
+          </div>
+        ) : (
+          <GoogleMap
+            mapContainerStyle={{ height: '100%', width: '100%' }}
+            center={mapCenter}
+            zoom={14}
+            options={MAP_OPTS}
+            onClick={handleMapClick}
+          >
+            {position && pinIcon && (
+              <Marker position={position} icon={pinIcon} />
+            )}
+          </GoogleMap>
+        )}
       </div>
 
       {/* Confirmed location badge */}
@@ -230,11 +242,11 @@ export default function Step3Location({ onNext }) {
           <IconMapPin size={15} stroke={1.5} style={{ color: '#1A7A4A', flexShrink: 0, marginTop: 1 }} />
           <div className="min-w-0">
             {loading ? (
-              <p className="text-xs" style={{ color: '#7A7875' }}>Getting address…</p>
+              <p className="text-xs" style={{ color: '#7A7875' }}>Getting address from Google Maps…</p>
             ) : (
               <>
                 <p className="font-medium text-xs" style={{ color: '#1A7A4A' }}>
-                  {manualAddress ? 'Manual address saved' : 'Location pinned on map'}
+                  {manualAddress ? 'Manual address saved' : 'Location pinned ✓'}
                 </p>
                 <p className="text-xs mt-0.5 line-clamp-2" style={{ color: '#4A4A48' }}>
                   {manualAddress || address}
@@ -258,19 +270,14 @@ export default function Step3Location({ onNext }) {
             City <span style={{ color: '#C13B2A' }}>*</span>
           </label>
           <select value={city} onChange={e => setCity(e.target.value)} style={inputStyle}>
-            {['Kolkata','Mumbai','Delhi','Bangalore','Chennai','Hyderabad','Pune'].map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            {Object.keys(CITY_CENTRES).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       </div>
 
-      <button
-        onClick={handleNext}
-        disabled={!canProceed}
+      <button onClick={handleNext} disabled={!canProceed}
         className="w-full py-3.5 font-semibold text-white transition-opacity disabled:opacity-50"
-        style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}
-      >
+        style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}>
         Set Location →
       </button>
     </div>
