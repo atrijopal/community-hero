@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { IconPlus } from '@tabler/icons-react';
 import Navbar from '../../components/shared/Navbar';
 import TicketCard from '../../components/shared/TicketCard';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -7,12 +8,14 @@ import { useAuth } from '../../hooks/useAuth';
 import { useMyTickets } from '../../hooks/useTicket';
 
 const FILTERS = [
-  { label: 'All',        value: '' },
-  { label: 'Active',     value: 'active' },
-  { label: 'Resolved',   value: 'resolved' },
-  { label: 'Escalated',  value: 'ESCALATED' },
-  { label: 'RTI Filed',  value: 'RTI_FILED' },
+  { label: 'All',       value: '' },
+  { label: 'Active',    value: 'active' },
+  { label: 'Resolved',  value: 'resolved' },
+  { label: 'Escalated', value: 'ESCALATED' },
+  { label: 'RTI Filed', value: 'RTI_FILED' },
 ];
+
+const btn = { backgroundColor: '#C13B2A', borderRadius: '6px', color: 'white' };
 
 export default function MyTickets() {
   const { user }             = useAuth();
@@ -21,48 +24,51 @@ export default function MyTickets() {
   const navigate             = useNavigate();
 
   const filtered = tickets.filter(t => {
-    if (!filter)            return true;
+    if (!filter)               return true;
     if (filter === 'active')   return !['RESOLVED','CLOSED_OVERRIDE','REJECTED'].includes(t.status);
     if (filter === 'resolved') return ['RESOLVED','CLOSED_OVERRIDE'].includes(t.status);
     return t.status === filter;
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: '#F5F3F0' }}>
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Tickets</h1>
-          <button
-            onClick={() => navigate('/citizen/report')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition"
-          >
-            + Report
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-xl font-semibold" style={{ color: '#4A4A48' }}>My Tickets</h1>
+          <button onClick={() => navigate('/citizen/report')}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90"
+            style={btn}>
+            <IconPlus size={14} stroke={2} /> Report
           </button>
         </div>
 
-        {/* Filters */}
+        {/* Filter tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-          {FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                filter === f.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-200'
-              }`}
-            >
-              {f.label} {f.value === '' && `(${tickets.length})`}
-            </button>
-          ))}
+          {FILTERS.map(f => {
+            const active = filter === f.value;
+            return (
+              <button key={f.value} onClick={() => setFilter(f.value)}
+                className="px-3 py-1.5 text-sm font-medium whitespace-nowrap border transition-colors"
+                style={{
+                  backgroundColor: active ? '#C13B2A' : 'white',
+                  color: active ? 'white' : '#7A7875',
+                  borderColor: active ? '#C13B2A' : '#E5E2DE',
+                  borderRadius: '6px',
+                }}>
+                {f.label} {f.value === '' && `(${tickets.length})`}
+              </button>
+            );
+          })}
         </div>
 
-        {loading ? <LoadingSpinner text="Loading your tickets..." /> : filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-            <p className="text-5xl mb-3">📋</p>
-            <p className="text-gray-600 font-medium">No tickets found</p>
-            <button onClick={() => navigate('/citizen/report')} className="mt-4 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition">
+        {loading ? <LoadingSpinner text="Loading your tickets…" /> : filtered.length === 0 ? (
+          <div className="text-center py-16 bg-white border" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
+            <p className="text-4xl mb-3 font-serif" style={{ color: '#B8B5B0' }}>—</p>
+            <p className="font-medium mb-4" style={{ color: '#4A4A48' }}>No tickets found</p>
+            <button onClick={() => navigate('/citizen/report')}
+              className="px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={btn}>
               Report Your First Issue
             </button>
           </div>

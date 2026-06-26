@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix default icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -11,13 +10,13 @@ L.Icon.Default.mergeOptions({
 });
 
 const PIN_COLORS = {
-  CRITICAL:  '#EA4335',
-  HIGH:      '#FF6D00',
-  MEDIUM:    '#FBBC04',
-  LOW:       '#34A853',
-  RESOLVED:  '#34A853',
-  PREDICTED: '#1A73E8',
-  GHOST:     '#7C3AED',
+  CRITICAL:  '#C13B2A',
+  HIGH:      '#D4730A',
+  MEDIUM:    '#D4730A',
+  LOW:       '#1A7A4A',
+  RESOLVED:  '#1A7A4A',
+  PREDICTED: '#6B50B8',
+  GHOST:     '#8B1A1A',
 };
 
 const getSeverityClass = (severity, status) => {
@@ -49,7 +48,7 @@ export default function CommunityMap({
   onTicketClick, height = '400px',
 }) {
   return (
-    <div style={{ height, width: '100%' }} className="rounded-xl overflow-hidden border border-gray-200">
+    <div style={{ height, width: '100%', border: '1px solid #E5E2DE', borderRadius: '8px', overflow: 'hidden' }}>
       <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
         <SetView center={center} zoom={zoom} />
         <TileLayer
@@ -68,18 +67,18 @@ export default function CommunityMap({
               icon={createIcon(color)}
             >
               <Popup>
-                <div className="text-sm min-w-44">
-                  <p className="font-bold text-gray-900">{ticket.publicId}</p>
-                  <p className="text-gray-600 capitalize">{ticket.issueType?.replace('_', ' ')}</p>
-                  <p className="text-gray-500 text-xs mt-1">{ticket.location?.address}</p>
-                  <div className="flex gap-2 mt-2 text-xs">
-                    <span className="text-gray-500">Sev: {ticket.severity}/10</span>
-                    <span className="text-gray-500">👍 {ticket.upvoteCount || 0}</span>
+                <div style={{ fontSize: 13, minWidth: 176 }}>
+                  <p style={{ fontWeight: 700, color: '#4A4A48', marginBottom: 2 }}>{ticket.publicId}</p>
+                  <p style={{ color: '#7A7875', textTransform: 'capitalize' }}>{ticket.issueType?.replace('_', ' ')}</p>
+                  <p style={{ color: '#B8B5B0', fontSize: 11, marginTop: 4 }}>{ticket.location?.address}</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, fontSize: 11, color: '#7A7875' }}>
+                    <span>Sev: {ticket.severity}/10</span>
+                    <span>👍 {ticket.upvoteCount || 0}</span>
                   </div>
                   {onTicketClick && (
                     <button
                       onClick={() => onTicketClick(ticket)}
-                      className="mt-2 text-blue-600 text-xs underline hover:text-blue-800"
+                      style={{ marginTop: 6, color: '#C13B2A', fontSize: 11, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       View details →
                     </button>
@@ -97,12 +96,12 @@ export default function CommunityMap({
             icon={createIcon(PIN_COLORS.PREDICTED, true)}
           >
             <Popup>
-              <div className="text-sm min-w-44">
-                <p className="font-bold text-blue-700">🔵 AI Prediction</p>
-                <p className="text-gray-700 capitalize">{pred.issueType?.replace('_', ' ')}</p>
-                <p className="text-gray-500 text-xs mt-1">{pred.location}</p>
-                <p className="text-blue-600 text-xs mt-1 font-medium">{pred.probability}% probability</p>
-                <p className="text-gray-500 text-xs mt-1">{pred.reason}</p>
+              <div style={{ fontSize: 13, minWidth: 176 }}>
+                <p style={{ fontWeight: 700, color: '#6B50B8', marginBottom: 2 }}>◆ AI Prediction</p>
+                <p style={{ color: '#4A4A48', textTransform: 'capitalize' }}>{pred.issueType?.replace('_', ' ')}</p>
+                <p style={{ color: '#B8B5B0', fontSize: 11, marginTop: 4 }}>{pred.location}</p>
+                <p style={{ color: '#6B50B8', fontSize: 11, marginTop: 4, fontWeight: 600 }}>{pred.probability}% probability</p>
+                <p style={{ color: '#7A7875', fontSize: 11, marginTop: 2 }}>{pred.reason}</p>
               </div>
             </Popup>
           </Marker>

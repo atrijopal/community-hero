@@ -5,10 +5,17 @@ import { db } from '../../firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
+const FILTERS = [
+  { label: 'All',         value: 'all' },
+  { label: 'Unassigned',  value: 'unassigned' },
+  { label: 'Critical',    value: 'critical' },
+  { label: 'Ghost',       value: 'ghost' },
+];
+
 export default function WardMap() {
-  const [tickets, setTickets]     = useState([]);
+  const [tickets, setTickets]         = useState([]);
   const [predictions, setPredictions] = useState([]);
-  const [filter, setFilter]       = useState('all');
+  const [filter, setFilter]           = useState('all');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,24 +37,23 @@ export default function WardMap() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F5F3F0' }}>
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-4 flex-1 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">🗺️ Ward Map</h1>
+          <h1 className="text-xl font-semibold" style={{ color: '#4A4A48' }}>Ward Map</h1>
           <div className="flex gap-2">
-            {[
-              { label: 'All', value: 'all' },
-              { label: '⚠️ Unassigned', value: 'unassigned' },
-              { label: '🔴 Critical', value: 'critical' },
-              { label: '👻 Ghost', value: 'ghost' },
-            ].map(f => (
+            {FILTERS.map(f => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  filter === f.value ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-200'
-                }`}
+                className="px-3 py-1.5 text-sm font-medium border transition-colors"
+                style={{
+                  backgroundColor: filter === f.value ? '#C13B2A' : 'white',
+                  color: filter === f.value ? 'white' : '#7A7875',
+                  borderColor: filter === f.value ? '#C13B2A' : '#E5E2DE',
+                  borderRadius: '6px',
+                }}
               >
                 {f.label}
               </button>
@@ -60,7 +66,7 @@ export default function WardMap() {
           height="calc(100vh - 200px)"
           onTicketClick={t => navigate(`/track/${t.publicId}`)}
         />
-        <div className="text-xs text-gray-500 text-center">
+        <div className="text-xs text-center" style={{ color: '#B8B5B0' }}>
           Showing {filtered.length} tickets · {predictions.length} AI predictions
         </div>
       </div>
