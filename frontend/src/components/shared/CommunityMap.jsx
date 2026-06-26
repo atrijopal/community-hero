@@ -1,17 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
-import { Link } from 'react-router-dom';
 
 const GKEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
+const KOLKATA = { lat: 22.5726, lng: 88.3639 };
+
 const SEV_CONFIG = {
-  CRITICAL: { color: '#C13B2A', size: 28, label: 'Critical (9–10)' },
-  HIGH:     { color: '#D4730A', size: 22, label: 'High (7–8)' },
-  MEDIUM:   { color: '#D4730A', size: 17, label: 'Medium (4–6)' },
-  LOW:      { color: '#1A7A4A', size: 14, label: 'Low (1–3)' },
-  RESOLVED: { color: '#1A7A4A', size: 14, label: 'Resolved' },
-  GHOST:    { color: '#8B1A1A', size: 22, label: 'Ghost Flagged' },
-  PREDICTED:{ color: '#6B50B8', size: 16, label: 'AI Prediction' },
+  CRITICAL:  { color: '#C13B2A', size: 28 },
+  HIGH:      { color: '#D4730A', size: 22 },
+  MEDIUM:    { color: '#D4730A', size: 17 },
+  LOW:       { color: '#1A7A4A', size: 14 },
+  RESOLVED:  { color: '#1A7A4A', size: 14 },
+  GHOST:     { color: '#8B1A1A', size: 22 },
+  PREDICTED: { color: '#6B50B8', size: 16 },
 };
 
 const STATUS_LABEL = {
@@ -20,23 +21,21 @@ const STATUS_LABEL = {
   ESCALATED: 'Escalated', RTI_FILED: 'RTI Filed',
 };
 
-const getSevKey = (severity, status) => {
+function getSevKey(severity, status) {
   if (status === 'RESOLVED' || status === 'CLOSED_OVERRIDE') return 'RESOLVED';
   if (status === 'GHOST_FLAGGED') return 'GHOST';
   if (severity >= 9) return 'CRITICAL';
   if (severity >= 7) return 'HIGH';
   if (severity >= 4) return 'MEDIUM';
   return 'LOW';
-};
+}
 
-// Build a colored circle SVG icon — must be called after Google Maps SDK is loaded
 function makeIcon(color, size, dashed = false) {
-  const r   = size / 2 - 2;
-  const cx  = size / 2;
+  const r  = size / 2 - 2;
+  const cx = size / 2;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
     <circle cx="${cx}" cy="${cx}" r="${r}"
-      fill="${dashed ? 'white' : color}"
-      stroke="${color}" stroke-width="2.5"
+      fill="${dashed ? 'white' : color}" stroke="${color}" stroke-width="2.5"
       ${dashed ? 'stroke-dasharray="4 2"' : ''}/>
     ${dashed ? `<circle cx="${cx}" cy="${cx}" r="${r * 0.45}" fill="${color}"/>` : ''}
   </svg>`;
@@ -49,39 +48,35 @@ function makeIcon(color, size, dashed = false) {
 }
 
 const MAP_OPTS = {
-  streetViewControl: false,
-  mapTypeControl:    false,
-  fullscreenControl: true,
-  scaleControl:      false,
-  zoomControl:       true,
-  clickableIcons:    false,
+  streetViewControl: false, mapTypeControl: false,
+  fullscreenControl: true,  scaleControl: false, zoomControl: true,
+  clickableIcons: false,
   styles: [
-    { featureType: 'poi',             elementType: 'labels',      stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit.station', elementType: 'labels',      stylers: [{ visibility: 'off' }] },
-    { featureType: 'road',            elementType: 'geometry',    stylers: [{ lightness: 20 }] },
-    { featureType: 'water',           elementType: 'geometry',    stylers: [{ color: '#c9d8e8' }] },
-    { featureType: 'landscape',       elementType: 'geometry',    stylers: [{ color: '#f5f5f0' }] },
+    { featureType: 'poi',             elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit.station', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'water',    elementType: 'geometry', stylers: [{ color: '#c9d8e8' }] },
+    { featureType: 'landscape',elementType: 'geometry', stylers: [{ color: '#f5f5f0' }] },
   ],
 };
 
 function Legend() {
   const entries = [
-    { color: '#C13B2A', label: 'Critical (sev 9–10)',  dashed: false },
-    { color: '#D4730A', label: 'High / Medium',         dashed: false },
-    { color: '#1A7A4A', label: 'Low / Resolved',        dashed: false },
-    { color: '#8B1A1A', label: 'Ghost Flagged',         dashed: false },
-    { color: '#6B50B8', label: 'AI Prediction',         dashed: true  },
+    { color: '#C13B2A', label: 'Critical (sev 9–10)', dashed: false },
+    { color: '#D4730A', label: 'High / Medium',        dashed: false },
+    { color: '#1A7A4A', label: 'Low / Resolved',       dashed: false },
+    { color: '#8B1A1A', label: 'Ghost Flagged',        dashed: false },
+    { color: '#6B50B8', label: 'AI Prediction',        dashed: true  },
   ];
   return (
     <div style={{
-      position: 'absolute', bottom: 32, right: 10, zIndex: 10,
+      position: 'absolute', bottom: 36, right: 12, zIndex: 10,
       background: 'rgba(255,255,255,0.96)', border: '1px solid #E5E2DE',
-      borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: '20px',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.12)', minWidth: 155, pointerEvents: 'none',
+      borderRadius: 8, padding: '10px 14px', fontSize: 11, lineHeight: '22px',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.14)', minWidth: 158, pointerEvents: 'none',
     }}>
-      <p style={{ fontWeight: 700, color: '#4A4A48', marginBottom: 5, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Legend</p>
+      <p style={{ fontWeight: 700, color: '#4A4A48', marginBottom: 4, fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Legend</p>
       {entries.map(e => (
-        <div key={e.label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div key={e.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
             background: e.dashed ? 'white' : e.color,
@@ -109,13 +104,37 @@ function SevBar({ severity }) {
 
 export default function CommunityMap({
   tickets = [], predictions = [],
-  center = { lat: 22.5726, lng: 88.3639 }, zoom = 13,
+  center = KOLKATA, zoom = 13,
   onTicketClick, height = '400px',
 }) {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GKEY });
-  const [selected, setSelected]     = useState(null); // { type:'ticket'|'pred', data }
-  const [mapRef, setMapRef]         = useState(null);
-  const onLoad = useCallback(map => setMapRef(map), []);
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GKEY, id: 'google-map-script' });
+  const [selected, setSelected] = useState(null);
+  const mapRef = useRef(null);
+
+  const onLoad = useCallback(map => {
+    mapRef.current = map;
+  }, []);
+
+  // Fit bounds to all markers whenever tickets change and map is ready
+  useEffect(() => {
+    if (!mapRef.current || !isLoaded) return;
+    const located = tickets.filter(t => t.location?.lat && t.location?.lng);
+    if (located.length === 0) {
+      mapRef.current.setCenter(center);
+      mapRef.current.setZoom(zoom);
+      return;
+    }
+    const bounds = new window.google.maps.LatLngBounds();
+    located.forEach(t => bounds.extend({ lat: t.location.lat, lng: t.location.lng }));
+    predictions.forEach(p => p.lat && bounds.extend({ lat: p.lat, lng: p.lng }));
+    mapRef.current.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+    // Don't over-zoom on a single marker
+    const listener = window.google.maps.event.addListenerOnce(mapRef.current, 'bounds_changed', () => {
+      if (mapRef.current.getZoom() > 15) mapRef.current.setZoom(15);
+    });
+    return () => window.google.maps.event.removeListener(listener);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets.length, predictions.length, isLoaded]);
 
   if (!isLoaded) {
     return (
@@ -130,13 +149,12 @@ export default function CommunityMap({
     <div style={{ height, width: '100%', border: '1px solid #E5E2DE', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
       <GoogleMap
         mapContainerStyle={{ height: '100%', width: '100%' }}
-        center={center}
-        zoom={zoom}
+        defaultCenter={KOLKATA}
+        defaultZoom={12}
         options={MAP_OPTS}
         onLoad={onLoad}
         onClick={() => setSelected(null)}
       >
-        {/* Ticket markers */}
         {tickets.map(ticket => {
           if (!ticket.location?.lat) return null;
           const key = getSevKey(ticket.severity, ticket.status);
@@ -158,7 +176,6 @@ export default function CommunityMap({
           );
         })}
 
-        {/* Prediction markers */}
         {predictions.map((pred, i) => (
           <Marker
             key={`pred-${i}`}
@@ -168,7 +185,6 @@ export default function CommunityMap({
           />
         ))}
 
-        {/* Info window — ticket */}
         {selected?.type === 'ticket' && (() => {
           const t   = selected.data;
           const key = getSevKey(t.severity, t.status);
@@ -179,12 +195,11 @@ export default function CommunityMap({
               onCloseClick={() => setSelected(null)}
             >
               <div style={{ minWidth: 210, fontFamily: 'system-ui, sans-serif', paddingBottom: 4 }}>
-                {/* Coloured header */}
-                <div style={{ background: cfg.color, margin: '-8px -8px 10px', padding: '7px 10px', borderRadius: '4px 4px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: cfg.color, margin: '-8px -8px 10px', padding: '7px 10px',
+                  borderRadius: '4px 4px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: 'monospace' }}>{t.publicId}</span>
                   <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10 }}>{STATUS_LABEL[t.status] || t.status}</span>
                 </div>
-
                 <p style={{ fontWeight: 700, color: '#4A4A48', fontSize: 13, marginBottom: 3, textTransform: 'capitalize' }}>
                   {t.issueType?.replace(/_/g, ' ')}
                 </p>
@@ -212,7 +227,6 @@ export default function CommunityMap({
           );
         })()}
 
-        {/* Info window — AI prediction */}
         {selected?.type === 'pred' && (
           <InfoWindow
             position={{ lat: selected.data.lat, lng: selected.data.lng }}
