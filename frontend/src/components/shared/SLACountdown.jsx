@@ -1,15 +1,25 @@
 import { daysUntil, daysAgo } from '../../utils/formatters';
+import { useTranslateMap } from '../../hooks/useTranslate';
+
+const STRINGS = {
+  breached:      'SLA Breached',
+  daysOverdue:   'days overdue',
+  dueToday:      'Due today',
+  dayRemaining:  'day remaining',
+  daysRemaining: 'days remaining',
+};
 
 export default function SLACountdown({ slaDeadline, slaBreached }) {
+  const tr    = useTranslateMap(STRINGS);
   if (!slaDeadline) return null;
-  const days = daysUntil(slaDeadline);
+  const days  = daysUntil(slaDeadline);
   const since = daysAgo(slaDeadline);
 
   if (slaBreached || days < 0) {
     return (
       <div className="flex items-center gap-2 text-red-600">
         <span className="text-xs font-medium bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-          ⚠️ SLA Breached — {since} days overdue
+          ⚠️ {tr.breached} — {since} {tr.daysOverdue}
         </span>
       </div>
     );
@@ -21,7 +31,7 @@ export default function SLACountdown({ slaDeadline, slaBreached }) {
 
   return (
     <span className={`text-xs font-medium border px-2 py-0.5 rounded-full ${color}`}>
-      ⏱ {days === 0 ? 'Due today' : `${days} day${days !== 1 ? 's' : ''} remaining`}
+      ⏱ {days === 0 ? tr.dueToday : `${days} ${days !== 1 ? tr.daysRemaining : tr.dayRemaining}`}
     </span>
   );
 }

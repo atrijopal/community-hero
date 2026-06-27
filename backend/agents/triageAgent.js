@@ -56,27 +56,36 @@ async function runTriageAgent(ticketId, ticket) {
 
     const officer = deptOfficers[0];
 
-    // ── Step 3: Auto-assign ──────────────────────────────────────────────────
-    await db.collection('tickets').doc(ticketId).update({
-      status:              'ASSIGNED',
-      assignedOfficerId:   officer.id,
-      assignedOfficerName: officer.name,
-      updatedAt:           now.toISOString(),
-    });
+    // ── Step 3: Auto-assign (atomic transaction) ─────────────────────────────
+    await db.runTransaction(async (tx) => {
+      const ticketRef  = db.collection('tickets').doc(ticketId);
+      const officerRef = db.collection('officers').doc(officer.id);
+      const logRef     = db.collection('ticket_logs').doc();
 
-    await db.collection('officers').doc(officer.id).update({
-      activeCaseCount: admin.firestore.FieldValue.increment(1),
-      totalAssigned:   admin.firestore.FieldValue.increment(1),
-    });
+      // Verify ticket is still unassigned before committing
+      const ticketDoc = await tx.get(ticketRef);
+      if (!ticketDoc.exists) throw new Error('Ticket not found');
+      if (ticketDoc.data().status !== 'UNASSIGNED') throw new Error('Ticket already assigned');
 
-    await db.collection('ticket_logs').add({
-      ticketId,
-      action:     'OFFICER_ASSIGNED',
-      newState:   'ASSIGNED',
-      actorId:    'triage_agent',
-      officerId:  officer.id,
-      officerName:officer.name,
-      timestamp:  now.toISOString(),
+      tx.update(ticketRef, {
+        status:              'ASSIGNED',
+        assignedOfficerId:   officer.id,
+        assignedOfficerName: officer.name,
+        updatedAt:           now.toISOString(),
+      });
+      tx.update(officerRef, {
+        activeCaseCount: admin.firestore.FieldValue.increment(1),
+        totalAssigned:   admin.firestore.FieldValue.increment(1),
+      });
+      tx.set(logRef, {
+        ticketId,
+        action:      'OFFICER_ASSIGNED',
+        newState:    'ASSIGNED',
+        actorId:     'triage_agent',
+        officerId:   officer.id,
+        officerName: officer.name,
+        timestamp:   now.toISOString(),
+      });
     });
 
     log.steps.push({

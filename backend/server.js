@@ -22,7 +22,8 @@ require('./workers/verifyTimeoutWorker').start();
 
 const app = express();
 
-app.use(helmet());
+app.set('trust proxy', 1); // App Engine sits behind Google's load balancer
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
@@ -44,9 +45,12 @@ app.use('/api/agents',   rateLimiters.general, agentRoutes);
 
 // Serve React frontend in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'public')));
+  // Static assets (hashed filenames) — cache aggressively
+  app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1y', index: false }));
+  // index.html — never cache so deploys take effect immediately
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     }
   });

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { IconCurrentLocation, IconSearch, IconMapPin } from '@tabler/icons-react';
+import { useTranslateMap } from '../../../hooks/useTranslate';
 
 const GKEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
 
@@ -19,16 +20,37 @@ const MAP_OPTS = {
   fullscreenControl: false, scaleControl: false,
   clickableIcons: false,
   styles: [
-    { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit.station', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'poi',              elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit.station',  elementType: 'labels', stylers: [{ visibility: 'off' }] },
   ],
+};
+
+const STRINGS = {
+  title:             'Set Location',
+  subtitle:          'Search an address, use GPS, or tap the map',
+  searchLabel:       'Search Address / Landmark',
+  searchPlaceholder: 'e.g. Brabourn Road, Lake Town, Ward 82…',
+  findBtn:           'Find',
+  searching:         '…',
+  gpsBtn:            'Use My Current Location',
+  gettingLocation:   'Getting location…',
+  manualLabel:       'Or type address manually',
+  manualPlaceholder: 'Full address if map search doesn\'t work…',
+  manualNote:        'City-centre coordinates used for mapping. Officers will use your text to locate the issue.',
+  orTapMap:          'or tap the map',
+  loadingMap:        'Loading map…',
+  addressNotFound:   'Address not found. Your text will be saved as typed.',
+  gettingAddress:    'Getting address from Google Maps…',
+  manualSaved:       'Manual address saved',
+  locationPinned:    'Location pinned ✓',
+  wardLabel:         'Ward',
+  cityLabel:         'City',
+  setLocationBtn:    'Set Location →',
 };
 
 async function reverseGeocode(lat, lng) {
   try {
-    const res  = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GKEY}`
-    );
+    const res  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GKEY}`);
     const data = await res.json();
     if (data.status === 'OK' && data.results[0]) return data.results[0].formatted_address;
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -39,9 +61,7 @@ async function reverseGeocode(lat, lng) {
 
 async function forwardGeocode(query) {
   try {
-    const res  = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GKEY}`
-    );
+    const res  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GKEY}`);
     const data = await res.json();
     if (data.status === 'OK' && data.results[0]) {
       const loc = data.results[0].geometry.location;
@@ -60,18 +80,19 @@ const inputStyle = {
 
 export default function Step3Location({ onNext }) {
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GKEY });
+  const tr           = useTranslateMap(STRINGS);
 
-  const [position, setPosition]         = useState(null);
-  const [address, setAddress]           = useState('');
+  const [position, setPosition]           = useState(null);
+  const [address, setAddress]             = useState('');
   const [manualAddress, setManualAddress] = useState('');
-  const [ward, setWard]                 = useState('');
-  const [city, setCity]                 = useState('Kolkata');
-  const [loading, setLoading]           = useState(false);
-  const [gpsLoading, setGpsLoading]     = useState(false);
-  const [searchQuery, setSearchQuery]   = useState('');
-  const [searching, setSearching]       = useState(false);
-  const [searchErr, setSearchErr]       = useState('');
-  const [mapCenter, setMapCenter]       = useState(CITY_CENTRES.Kolkata);
+  const [ward, setWard]                   = useState('');
+  const [city, setCity]                   = useState('Kolkata');
+  const [loading, setLoading]             = useState(false);
+  const [gpsLoading, setGpsLoading]       = useState(false);
+  const [searchQuery, setSearchQuery]     = useState('');
+  const [searching, setSearching]         = useState(false);
+  const [searchErr, setSearchErr]         = useState('');
+  const [mapCenter, setMapCenter]         = useState(CITY_CENTRES.Kolkata);
 
   const handleMapClick = useCallback(async (e) => {
     const lat = e.latLng.lat();
@@ -116,7 +137,7 @@ export default function Step3Location({ onNext }) {
       setManualAddress('');
       setSearchErr('');
     } else {
-      setSearchErr('Address not found. Your text will be saved as typed.');
+      setSearchErr(tr.addressNotFound);
       setManualAddress(searchQuery);
       setPosition(null);
     }
@@ -150,28 +171,27 @@ export default function Step3Location({ onNext }) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold mb-1" style={{ color: '#4A4A48' }}>Set Location</h2>
-        <p className="text-sm" style={{ color: '#7A7875' }}>Search an address, use GPS, or tap the map</p>
+        <h2 className="text-xl font-bold mb-1" style={{ color: '#4A4A48' }}>{tr.title}</h2>
+        <p className="text-sm" style={{ color: '#7A7875' }}>{tr.subtitle}</p>
       </div>
 
-      {/* Address search */}
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
-          Search Address / Landmark
+          {tr.searchLabel}
         </label>
         <div className="flex gap-2">
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="e.g. Brabourn Road, Lake Town, Ward 82…"
+            placeholder={tr.searchPlaceholder}
             style={{ ...inputStyle, flex: 1 }}
           />
           <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
             className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             style={{ backgroundColor: '#4A4A48', borderRadius: '6px', whiteSpace: 'nowrap' }}>
             <IconSearch size={14} stroke={2} />
-            {searching ? '…' : 'Find'}
+            {searching ? tr.searching : tr.findBtn}
           </button>
         </div>
         {searchErr && (
@@ -181,44 +201,38 @@ export default function Step3Location({ onNext }) {
         )}
       </div>
 
-      {/* GPS */}
       <button onClick={handleGPS} disabled={gpsLoading}
         className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium border transition"
         style={{ borderColor: '#C13B2A', color: '#C13B2A', borderRadius: '6px', backgroundColor: 'white' }}>
         <IconCurrentLocation size={15} stroke={1.5} />
-        {gpsLoading ? 'Getting location…' : 'Use My Current Location'}
+        {gpsLoading ? tr.gettingLocation : tr.gpsBtn}
       </button>
 
-      {/* Manual address fallback */}
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
-          Or type address manually
+          {tr.manualLabel}
         </label>
         <input
           value={manualAddress}
           onChange={e => { setManualAddress(e.target.value); if (e.target.value) { setPosition(null); setAddress(''); } }}
-          placeholder="Full address if map search doesn't work…"
+          placeholder={tr.manualPlaceholder}
           style={inputStyle}
         />
         {manualAddress && (
-          <p className="text-xs mt-1" style={{ color: '#7A7875' }}>
-            City-centre coordinates used for mapping. Officers will use your text to locate the issue.
-          </p>
+          <p className="text-xs mt-1" style={{ color: '#7A7875' }}>{tr.manualNote}</p>
         )}
       </div>
 
-      {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px" style={{ backgroundColor: '#E5E2DE' }} />
-        <span className="text-xs" style={{ color: '#B8B5B0' }}>or tap the map</span>
+        <span className="text-xs" style={{ color: '#B8B5B0' }}>{tr.orTapMap}</span>
         <div className="flex-1 h-px" style={{ backgroundColor: '#E5E2DE' }} />
       </div>
 
-      {/* Google Map */}
       <div className="overflow-hidden border" style={{ height: 260, borderRadius: '8px', borderColor: '#E5E2DE' }}>
         {!isLoaded ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F3F0' }}>
-            <p style={{ color: '#B8B5B0', fontSize: 13 }}>Loading map…</p>
+            <p style={{ color: '#B8B5B0', fontSize: 13 }}>{tr.loadingMap}</p>
           </div>
         ) : (
           <GoogleMap
@@ -228,25 +242,22 @@ export default function Step3Location({ onNext }) {
             options={MAP_OPTS}
             onClick={handleMapClick}
           >
-            {position && pinIcon && (
-              <Marker position={position} icon={pinIcon} />
-            )}
+            {position && pinIcon && <Marker position={position} icon={pinIcon} />}
           </GoogleMap>
         )}
       </div>
 
-      {/* Confirmed location badge */}
       {hasLocation && (
         <div className="flex items-start gap-2 border p-3 text-sm"
           style={{ backgroundColor: '#E8F5EE', borderColor: '#A7D5B9', borderRadius: '6px' }}>
           <IconMapPin size={15} stroke={1.5} style={{ color: '#1A7A4A', flexShrink: 0, marginTop: 1 }} />
           <div className="min-w-0">
             {loading ? (
-              <p className="text-xs" style={{ color: '#7A7875' }}>Getting address from Google Maps…</p>
+              <p className="text-xs" style={{ color: '#7A7875' }}>{tr.gettingAddress}</p>
             ) : (
               <>
                 <p className="font-medium text-xs" style={{ color: '#1A7A4A' }}>
-                  {manualAddress ? 'Manual address saved' : 'Location pinned ✓'}
+                  {manualAddress ? tr.manualSaved : tr.locationPinned}
                 </p>
                 <p className="text-xs mt-0.5 line-clamp-2" style={{ color: '#4A4A48' }}>
                   {manualAddress || address}
@@ -257,17 +268,16 @@ export default function Step3Location({ onNext }) {
         </div>
       )}
 
-      {/* Ward + City */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: '#4A4A48' }}>
-            Ward <span style={{ color: '#C13B2A' }}>*</span>
+            {tr.wardLabel} <span style={{ color: '#C13B2A' }}>*</span>
           </label>
           <input value={ward} onChange={e => setWard(e.target.value)} placeholder="e.g. 82" style={inputStyle} />
         </div>
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: '#4A4A48' }}>
-            City <span style={{ color: '#C13B2A' }}>*</span>
+            {tr.cityLabel} <span style={{ color: '#C13B2A' }}>*</span>
           </label>
           <select value={city} onChange={e => setCity(e.target.value)} style={inputStyle}>
             {Object.keys(CITY_CENTRES).map(c => <option key={c} value={c}>{c}</option>)}
@@ -278,7 +288,7 @@ export default function Step3Location({ onNext }) {
       <button onClick={handleNext} disabled={!canProceed}
         className="w-full py-3.5 font-semibold text-white transition-opacity disabled:opacity-50"
         style={{ backgroundColor: '#C13B2A', borderRadius: '6px' }}>
-        Set Location →
+        {tr.setLocationBtn}
       </button>
     </div>
   );

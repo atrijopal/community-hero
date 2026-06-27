@@ -15,10 +15,11 @@ import MapPage       from './pages/citizen/MapPage';
 import Leaderboard   from './pages/citizen/Leaderboard';
 import Profile       from './pages/citizen/Profile';
 
-import OfficerDashboard from './pages/officer/OfficerDashboard';
-import MyQueue          from './pages/officer/MyQueue';
-import QueriesInbox     from './pages/officer/QueriesInbox';
-import Performance      from './pages/officer/Performance';
+import OfficerDashboard    from './pages/officer/OfficerDashboard';
+import MyQueue             from './pages/officer/MyQueue';
+import QueriesInbox        from './pages/officer/QueriesInbox';
+import Performance         from './pages/officer/Performance';
+import OfficerTicketDetail from './pages/officer/OfficerTicketDetail';
 
 import AdminOverview    from './pages/admin/AdminOverview';
 import UnassignedQueue  from './pages/admin/UnassignedQueue';
@@ -68,10 +69,11 @@ export default function App() {
             <Route path="/citizen/profile"      element={<RoleGuard><Profile /></RoleGuard>} />
 
             {/* Officer */}
-            <Route path="/officer"             element={<RoleGuard role="officer"><OfficerDashboard /></RoleGuard>} />
-            <Route path="/officer/queue"       element={<RoleGuard role="officer"><MyQueue /></RoleGuard>} />
-            <Route path="/officer/queries"     element={<RoleGuard role="officer"><QueriesInbox /></RoleGuard>} />
-            <Route path="/officer/performance" element={<RoleGuard role="officer"><Performance /></RoleGuard>} />
+            <Route path="/officer"                      element={<RoleGuard role="officer"><OfficerDashboard /></RoleGuard>} />
+            <Route path="/officer/queue"               element={<RoleGuard role="officer"><MyQueue /></RoleGuard>} />
+            <Route path="/officer/ticket/:publicId"    element={<RoleGuard role="officer"><OfficerTicketDetail /></RoleGuard>} />
+            <Route path="/officer/queries"             element={<RoleGuard role="officer"><QueriesInbox /></RoleGuard>} />
+            <Route path="/officer/performance"         element={<RoleGuard role="officer"><Performance /></RoleGuard>} />
 
             {/* Admin */}
             <Route path="/admin"             element={<RoleGuard role="admin"><AdminOverview /></RoleGuard>} />

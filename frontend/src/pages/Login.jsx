@@ -6,15 +6,22 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../context/LanguageContext';
 import { useT } from '../utils/translations';
+import { useTranslateMap } from '../hooks/useTranslate';
+
+const EXTRA_STRINGS = {
+  invalidCredentials: 'Invalid email or password',
+  citizenNote:        'Citizen: Use Google Sign-In above',
+};
 
 export default function Login() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
-  const navigate = useNavigate();
-  const { userRole } = useAuth();
-  const { lang } = useLanguage();
-  const tr = useT(lang);
+  const navigate                 = useNavigate();
+  const { userRole }             = useAuth();
+  const { lang }                 = useLanguage();
+  const tr                       = useT(lang);
+  const ex                       = useTranslateMap(EXTRA_STRINGS);
 
   const handleGoogleLogin = async () => {
     try {
@@ -32,34 +39,28 @@ export default function Login() {
     e.preventDefault();
     try {
       setLoading(true);
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const cred  = await signInWithEmailAndPassword(auth, email, password);
       const token = await cred.user.getIdTokenResult();
       if (token.claims.admin)        navigate('/admin');
       else if (token.claims.officer) navigate('/officer');
       else                           navigate('/citizen');
     } catch {
-      toast.error('Invalid email or password');
+      toast.error(ex.invalidCredentials);
     } finally {
       setLoading(false);
     }
   };
 
   const inputStyle = {
-    border: '1px solid #E5E2DE',
-    borderRadius: '6px',
-    color: '#4A4A48',
-    backgroundColor: '#FFFFFF',
-    padding: '10px 12px',
-    fontSize: '14px',
-    width: '100%',
-    outline: 'none',
+    border: '1px solid #E5E2DE', borderRadius: '6px', color: '#4A4A48',
+    backgroundColor: '#FFFFFF', padding: '10px 12px', fontSize: '14px',
+    width: '100%', outline: 'none',
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: '#F5F3F0' }}>
       <div className="bg-white w-full max-w-md p-8 border" style={{ borderColor: '#E5E2DE', borderRadius: '8px' }}>
 
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ backgroundColor: '#FDF1EF' }}>
@@ -69,7 +70,6 @@ export default function Login() {
           <p className="text-sm mt-1" style={{ color: '#7A7875' }}>{tr.loginTitle}</p>
         </div>
 
-        {/* Google Sign-In */}
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
@@ -87,7 +87,6 @@ export default function Login() {
           {tr.googleLogin}
         </button>
 
-        {/* Divider */}
         <div className="relative mb-5">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full" style={{ borderTop: '1px solid #E5E2DE' }} />
@@ -97,7 +96,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Email / Password form */}
         <form onSubmit={handleEmailLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#7A7875' }}>
@@ -140,12 +138,11 @@ export default function Login() {
           </Link>
         </div>
 
-        {/* Demo credentials */}
         <div className="mt-5 p-3 text-xs" style={{ backgroundColor: '#F5F3F0', borderRadius: '6px', color: '#7A7875' }}>
           <p className="font-semibold mb-1.5 uppercase tracking-wider text-xs" style={{ color: '#4A4A48' }}>{tr.demoCredentials}</p>
           <p>Admin: admin@kmc.gov.in / Admin@123</p>
           <p>Officer: rajesh.kumar@kmc.gov.in / Officer@123</p>
-          <p style={{ color: '#B8B5B0' }}>Citizen: Use Google Sign-In above</p>
+          <p style={{ color: '#B8B5B0' }}>{ex.citizenNote}</p>
         </div>
       </div>
     </div>

@@ -94,7 +94,7 @@ export default function OfficerDashboard() {
             <h3 className="font-bold mb-3" style={{ color: '#C13B2A' }}>Critical Issues Requiring Immediate Attention</h3>
             <div className="space-y-2">
               {critical.slice(0, 3).map(t => (
-                <Link key={t.id} to={`/track/${t.publicId}`}
+                <Link key={t.id} to={`/officer/ticket/${t.publicId}`}
                   className="flex items-center gap-3 bg-white p-3 transition-opacity hover:opacity-80"
                   style={{ borderRadius: '6px' }}>
                   <div className="w-1.5 h-10 rounded-full shrink-0" style={{ backgroundColor: '#C13B2A' }} />
@@ -118,7 +118,7 @@ export default function OfficerDashboard() {
             </div>
             <div className="space-y-0">
               {active.slice(0, 5).map(t => (
-                <Link key={t.id} to={`/track/${t.publicId}`}
+                <Link key={t.id} to={`/officer/ticket/${t.publicId}`}
                   className="flex items-center gap-3 py-2.5 border-b last:border-0 hover:bg-surface-raised px-2 transition"
                   style={{ borderColor: '#E5E2DE' }}>
                   <span className="font-mono text-xs" style={{ color: '#B8B5B0' }}>{t.publicId}</span>

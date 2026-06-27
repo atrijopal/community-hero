@@ -28,3 +28,12 @@ body {
 /* Focus ring — always civic red */
 :focus-visible { outline: 2px solid #C13B2A; outline-offset: 2px; }
 *:focus:not(:focus-visible) { outline: none; }
+
+/* Kill extreme radii — enforce card aesthetic over SaaS bubbles */
+.rounded-2xl, .rounded-3xl { border-radius: 8px !important; }
+
+/* Replace drop-shadows with border — no floating cards */
+.shadow-md, .shadow-lg {
+  box-shadow: none !important;
+  border: 1px solid #E5E2DE !important;
+}

@@ -9,6 +9,10 @@ node_modules/
 backend/.env
 frontend/.env
 
+# App Engine deployment — contains ALL secrets, NEVER commit
+backend/app.yaml
+frontend/.env.production
+
 # Firebase service account keys
 serviceAccountKey.json
 *serviceAccount*.json

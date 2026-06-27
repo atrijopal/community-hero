@@ -1,0 +1,10 @@
+.git
+.gitignore
+node_modules/
+.env
+.env.*
+npm-debug.log
+*.log
+ai_test.js
+ai_real_test.js
+cascade_test.js

@@ -63,7 +63,7 @@ export default function MyQueue() {
         ) : (
           <div className="space-y-3">
             {filtered.map(ticket => (
-              <Link key={ticket.id} to={`/track/${ticket.publicId}`} className="block">
+              <Link key={ticket.id} to={`/officer/ticket/${ticket.publicId}`} className="block">
                 <div className="bg-white border-2 p-5 transition-colors hover:border-gray-300"
                   style={{
                     borderColor: ticket.severity >= 9 ? '#E5C5BF' : ticket.slaBreached ? '#F5D9A8' : '#E5E2DE',

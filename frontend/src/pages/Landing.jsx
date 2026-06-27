@@ -11,7 +11,7 @@ import {
   IconGhost, IconTrendingUp, IconBolt, IconId, IconMessageCircle,
   IconUsers, IconTrophy, IconLanguage, IconAlertTriangle,
   IconArrowRight, IconTicket, IconPlayerPlay, IconSearch,
-  IconBrandWhatsapp, IconRobot, IconClock, IconDeviceMobile,
+  IconBrandWhatsapp, IconRobot, IconClock,
 } from '@tabler/icons-react';
 
 // ─── strings (all three languages) ───────────────────────────────────────────
@@ -480,71 +480,6 @@ export default function Landing() {
                 </ul>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ E3. WHATSAPP CALLOUT ═════════════════════════════════════════════ */}
-      <section className="bg-[#EDFAF3] border-y border-[#A7D5B9] py-14 px-6">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-10">
-
-          {/* Left — copy */}
-          <div className="flex-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A7A4A] mb-5">
-              <IconBrandWhatsapp size={13} stroke={2} className="text-white" />
-              <span className="text-[10px] font-bold tracking-[0.1em] uppercase text-white">WhatsApp Updates</span>
-            </div>
-            <h2 className="font-serif text-[#1A1A18] leading-tight mb-3"
-                style={{ fontSize: 'clamp(20px, 3vw, 32px)' }}>
-              Track your report right from your WhatsApp.
-            </h2>
-            <p className="text-sm leading-relaxed text-[#2D8A5A] mb-5 max-w-sm">
-              When submitting a report, add your mobile number on the Contact step. You'll get instant WhatsApp messages at every stage — no app to install, no login to remember.
-            </p>
-            <div className="flex flex-col gap-2">
-              {[
-                '✅ Ticket submitted — ID + location confirmed',
-                '👷 Officer assigned — name + department',
-                '🎉 Issue resolved — rate the resolution',
-              ].map(line => (
-                <div key={line} className="flex items-start gap-2">
-                  <span className="text-sm text-[#1A7A4A]">{line}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right — mock WA message */}
-          <div className="flex-shrink-0 w-full max-w-xs">
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-[#D4EDE0]">
-              {/* WA header */}
-              <div className="bg-[#1A7A4A] px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <IconDeviceMobile size={15} stroke={1.5} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-white text-xs font-bold">Community Hero</p>
-                  <p className="text-white/60 text-[10px]">Official updates</p>
-                </div>
-              </div>
-              {/* WA message bubble */}
-              <div className="bg-[#ECF8F1] px-4 py-4">
-                <div className="bg-white rounded-xl rounded-tl-none shadow-sm px-3.5 py-3 text-[11px] leading-[1.65] text-[#2A2A28]"
-                     style={{ fontFamily: 'system-ui, sans-serif' }}>
-                  <span className="font-bold text-[#1A7A4A] block mb-1">✅ Community Hero — Report Received</span>
-                  <span className="block mb-2 text-[#4A4A48]">Hi Atrijo! 👋 Your civic report has been submitted successfully.</span>
-                  <span className="block text-[#4A4A48]">📋 <b>Ticket:</b> KOL-2026-00151</span>
-                  <span className="block text-[#4A4A48]">🏷️ <b>Issue:</b> Garbage</span>
-                  <span className="block text-[#4A4A48]">📍 <b>Location:</b> Lake Town, Kolkata</span>
-                  <span className="block text-[#4A4A48]">🟠 <b>Severity:</b> 6/10 (Moderate)</span>
-                  <span className="block mt-2 text-[#7A7875] text-[10px]">An officer will be assigned shortly.</span>
-                </div>
-                <p className="text-right text-[10px] text-[#7A7875] mt-1.5">Just now ✓✓</p>
-              </div>
-            </div>
-            <p className="text-center text-[11px] text-[#2D8A5A] mt-3 font-medium">
-              Add your number on the Contact step →
-            </p>
           </div>
         </div>
       </section>
