@@ -8,78 +8,154 @@ import { useMyTickets } from '../../hooks/useTicket';
 import { useGamification } from '../../hooks/useGamification';
 import { useLanguage } from '../../context/LanguageContext';
 import { useT } from '../../utils/translations';
-import { levelName } from '../../utils/formatters';
+import { useTranslateMap } from '../../hooks/useTranslate';
+import { levelName, timeAgo } from '../../utils/formatters';
+import {
+  IconPlus, IconMapPin, IconArrowUp, IconUser, IconSparkles,
+  IconClipboard, IconMap, IconTrophy, IconUserCircle, IconTicket,
+} from '@tabler/icons-react';
 
-const STATUS_STYLE = {
-  UNASSIGNED:     { bg: '#F2F2F0', text: '#5F5E5A', dot: '#B8B5B0' },
-  ASSIGNED:       { bg: '#EBF1F8', text: '#2D6A9F', dot: '#2D6A9F' },
-  IN_PROGRESS:    { bg: '#EBF1F8', text: '#2D6A9F', dot: '#2D6A9F' },
-  RESOLVED:       { bg: '#EBF5EF', text: '#1A7A4A', dot: '#1A7A4A' },
-  ESCALATED:      { bg: '#FEF3E7', text: '#D4730A', dot: '#D4730A' },
-  GHOST_FLAGGED:  { bg: '#F5EAEA', text: '#8B1A1A', dot: '#8B1A1A' },
-  RTI_FILED:      { bg: '#FDF1EF', text: '#C13B2A', dot: '#C13B2A' },
-  CLOSED_OVERRIDE:{ bg: '#F2F2F0', text: '#5F5E5A', dot: '#B8B5B0' },
+const STRINGS = {
+  reportFirst: 'File your first report',
+  CRITICAL:    'CRITICAL',
+  HIGH:        'HIGH',
+  MEDIUM:      'MEDIUM',
+  LOW:         'LOW',
+  aiConf:      'AI',
 };
 
-function StatusBadge({ status, tr }) {
-  const style = STATUS_STYLE[status] || STATUS_STYLE.UNASSIGNED;
-  const label = tr[status] || status?.replace(/_/g, ' ') || 'UNKNOWN';
+const STATUS_STYLE = {
+  UNASSIGNED:      { bg: '#F2F2F0', text: '#5F5E5A', dot: '#B8B5B0' },
+  ASSIGNED:        { bg: '#EBF1F8', text: '#2D6A9F', dot: '#2D6A9F' },
+  IN_PROGRESS:     { bg: '#EBF1F8', text: '#2D6A9F', dot: '#2D6A9F' },
+  RESOLVED:        { bg: '#EBF5EF', text: '#1A7A4A', dot: '#1A7A4A' },
+  ESCALATED:       { bg: '#FEF3E7', text: '#D4730A', dot: '#D4730A' },
+  GHOST_FLAGGED:   { bg: '#F5EAEA', text: '#8B1A1A', dot: '#8B1A1A' },
+  RTI_FILED:       { bg: '#FDF1EF', text: '#C13B2A', dot: '#C13B2A' },
+  CLOSED_OVERRIDE: { bg: '#F2F2F0', text: '#5F5E5A', dot: '#B8B5B0' },
+};
+
+function sevMeta(severity = 5) {
+  if (severity >= 9) return { color: '#C13B2A', key: 'CRITICAL' };
+  if (severity >= 7) return { color: '#D4730A', key: 'HIGH' };
+  if (severity >= 4) return { color: '#D4730A', key: 'MEDIUM' };
+  return { color: '#1A7A4A', key: 'LOW' };
+}
+
+function StatusChip({ status, tr }) {
+  const s     = STATUS_STYLE[status] || STATUS_STYLE.UNASSIGNED;
+  const label = tr[status] || status?.replace(/_/g, ' ') || '—';
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tracking-wide"
-      style={{ backgroundColor: style.bg, color: style.text }}>
-      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: style.dot }} />
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 7px', borderRadius: 4, fontSize: 10,
+      fontWeight: 700, letterSpacing: '0.05em',
+      backgroundColor: s.bg, color: s.text, flexShrink: 0,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: s.dot }} />
       {label}
     </span>
   );
 }
 
-function SeverityBar({ severity = 5, tr }) {
-  const pct = (severity / 10) * 100;
-  const color = severity >= 9 ? '#C13B2A' : severity >= 7 ? '#D4730A' : severity >= 4 ? '#D4730A' : '#1A7A4A';
-  const label = severity >= 9 ? tr.CRITICAL : severity >= 7 ? tr.HIGH : severity >= 4 ? tr.MEDIUM : tr.LOW;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: '#E5E2DE' }}>
-        <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
-      <span className="text-xs font-semibold tracking-wide" style={{ color, minWidth: 52 }}>{severity}/10 {label}</span>
-      {severity >= 9 && <span className="text-red-600 animate-pulse text-xs">⚠</span>}
-    </div>
-  );
-}
+function TicketCard({ ticket, tr, xs, compact = false }) {
+  const t     = ticket;
+  const sev   = sevMeta(t.severity);
+  const ago   = timeAgo(t.createdAt);
+  const title = t.issueType?.replace(/_/g, ' ') || t.category?.replace(/_/g, ' ') || '—';
+  const loc   = t.location?.address
+    || [t.location?.ward, t.location?.city].filter(Boolean).join(', ');
 
-function TicketRow({ ticket, tr }) {
-  const t = ticket;
   return (
-    <Link to={`/track/${t.publicId}`}
-      className="block bg-white border border-gray-200 rounded-lg hover:border-concrete-light hover:shadow-sm transition mb-2">
-      <div className="px-4 py-3">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="font-mono text-xs text-concrete-mid tracking-wider">{t.publicId}</span>
-          <StatusBadge status={t.status} tr={tr} />
+    <Link
+      to={`/track/${t.publicId}`}
+      style={{
+        display: 'block', background: 'white', borderRadius: 8,
+        border: '1px solid #E5E2DE', marginBottom: 8, textDecoration: 'none',
+        borderLeft: `3px solid ${sev.color}`,
+        transition: 'box-shadow 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      <div style={{ padding: '13px 16px 11px 13px' }}>
+
+        {/* Row 1: mono ID + status */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#7A7875', letterSpacing: '0.08em', fontWeight: 600 }}>
+            {t.publicId}
+          </span>
+          <StatusChip status={t.status} tr={tr} />
         </div>
-        <div className="text-sm font-semibold mb-0.5" style={{ color: '#4A4A48' }}>
-          {t.issueType?.replace(/_/g, ' ')} — {t.category?.replace(/_/g, ' ')}
-        </div>
-        <div className="text-xs mb-2" style={{ color: '#7A7875' }}>📍 {t.location?.address || `${t.location?.ward}, ${t.location?.city}`}</div>
-        <SeverityBar severity={t.severity} tr={tr} />
-        <div className="flex items-center justify-between mt-2 text-xs" style={{ color: '#B8B5B0' }}>
-          <span>👍 {t.upvoteCount || 0}</span>
-          {t.assignedOfficerName && <span>{tr.officer}: <span className="font-medium" style={{ color: '#4A4A48' }}>{t.assignedOfficerName}</span></span>}
-          {t.aiSuggested?.confidence && <span className="text-predicted">◆ {t.aiSuggested.confidence}% {tr.aiConfidence}</span>}
+
+        {/* Title */}
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#2A2A28', margin: '0 0 5px', lineHeight: 1.35 }}>
+          {title}
+        </p>
+
+        {/* Location */}
+        {loc && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 9 }}>
+            <IconMapPin size={11} stroke={1.5} style={{ color: '#B8B5B0', flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: '#7A7875' }}>{loc}</span>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#7A7875' }}>
+            <IconArrowUp size={11} stroke={1.5} />
+            {t.upvoteCount || 0}
+          </span>
+
+          {t.assignedOfficerName && !compact && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#7A7875' }}>
+              <IconUser size={11} stroke={1.5} />
+              <span style={{ color: '#4A4A48', fontWeight: 500 }}>{t.assignedOfficerName}</span>
+            </span>
+          )}
+
+          {t.aiSuggested?.confidence && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#6B50B8', fontWeight: 600 }}>
+              <IconSparkles size={10} stroke={1.5} />
+              {t.aiSuggested.confidence}% {xs.aiConf}
+            </span>
+          )}
+
+          <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#B8B5B0' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: sev.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: 600, color: sev.color }}>{t.severity}/10 {xs[sev.key]}</span>
+            </span>
+            <span>·</span>
+            <span>{ago}</span>
+          </span>
         </div>
       </div>
     </Link>
   );
 }
 
+function Spinner() {
+  return (
+    <div style={{ background: 'white', borderRadius: 8, border: '1px solid #E5E2DE', padding: 32, textAlign: 'center' }}>
+      <div style={{
+        width: 20, height: 20, borderRadius: '50%',
+        border: '2px solid #E5E2DE', borderTopColor: '#C13B2A',
+        animation: 'spin 0.8s linear infinite', margin: '0 auto',
+      }} />
+    </div>
+  );
+}
+
 export default function CitizenHome() {
-  const { user } = useAuth();
-  const { lang } = useLanguage();
-  const tr = useT(lang);
+  const { user }    = useAuth();
+  const { lang }    = useLanguage();
+  const tr          = useT(lang);
+  const xs          = useTranslateMap(STRINGS);
   const { tickets: myTickets, loading: myLoading } = useMyTickets(user?.uid);
   const { gamification } = useGamification(user?.uid);
-  const [feed, setFeed] = useState([]);
+  const [feed, setFeed]  = useState([]);
 
   useEffect(() => {
     const q = query(collection(db, 'tickets'), limit(8));
@@ -95,120 +171,164 @@ export default function CitizenHome() {
     );
   }, []);
 
-  const active   = myTickets.filter(t => !['RESOLVED','CLOSED_OVERRIDE','REJECTED'].includes(t.status));
-  const resolved = myTickets.filter(t => ['RESOLVED','CLOSED_OVERRIDE'].includes(t.status));
-  const xp = gamification?.xp || 0;
+  const active    = myTickets.filter(t => !['RESOLVED', 'CLOSED_OVERRIDE', 'REJECTED'].includes(t.status));
+  const resolved  = myTickets.filter(t => ['RESOLVED', 'CLOSED_OVERRIDE'].includes(t.status));
+  const xp        = gamification?.xp || 0;
   const xpInLevel = xp % 500;
-  const xpPct = (xpInLevel / 500) * 100;
+  const xpPct     = (xpInLevel / 500) * 100;
+  const firstName = user?.displayName?.split(' ')[0] || 'Citizen';
+
+  const reportBtnLabel = (tr.reportIssue || 'Report Issue').replace(/^\+\s*/, '');
+
+  const metrics = [
+    { label: tr.myActive, value: active.length,            color: '#2A2A28' },
+    { label: tr.resolved, value: resolved.length,           color: '#1A7A4A' },
+    { label: tr.totalXp,  value: xp,                        color: '#2A2A28' },
+    { label: tr.level,    value: gamification?.level || 1,  color: '#D4730A' },
+  ];
+
+  const quickLinks = [
+    { to: '/citizen/map',         Icon: IconMap,        label: tr.communityMap },
+    { to: '/citizen/leaderboard', Icon: IconTrophy,     label: tr.leaderboard },
+    { to: '/citizen/profile',     Icon: IconUserCircle, label: tr.myProfile },
+    { to: '/citizen/tickets',     Icon: IconTicket,     label: tr.allMyTickets },
+  ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F5F3F0' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F5F3F0' }}>
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 py-6">
 
-        <div className="flex items-start justify-between mb-5">
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px 56px' }}>
+
+        {/* ── Header row ──────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
           <div>
-            <h1 className="text-2xl font-semibold" style={{ color: '#4A4A48', letterSpacing: '-0.3px' }}>
-              {user?.displayName?.split(' ')[0] || 'Citizen'}'s {tr.dashboard}
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#2A2A28', margin: 0, letterSpacing: '-0.3px' }}>
+              {firstName}'s {tr.dashboard}
             </h1>
-            <p className="text-xs mt-0.5 uppercase tracking-wider font-medium" style={{ color: '#7A7875' }}>
+            <p style={{ fontSize: 10, marginTop: 3, letterSpacing: '0.09em', fontWeight: 600, color: '#B8B5B0', textTransform: 'uppercase' }}>
               {tr.ward}
             </p>
           </div>
-          <Link to="/citizen/report"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition hover:opacity-90"
-            style={{ backgroundColor: '#C13B2A' }}>
-            {tr.reportIssueBtn}
+          <Link
+            to="/citizen/report"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '9px 18px', borderRadius: 7, backgroundColor: '#C13B2A',
+              color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+          >
+            <IconPlus size={15} stroke={2.5} />
+            {reportBtnLabel}
           </Link>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-5">
-          {[
-            { label: tr.myActive,  value: active.length,             color: '#2D6A9F' },
-            { label: tr.resolved,  value: resolved.length,           color: '#1A7A4A' },
-            { label: tr.totalXp,   value: xp,                        color: '#6B50B8' },
-            { label: tr.level,     value: gamification?.level || 1,  color: '#D4730A' },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-lg px-3 py-3 border border-gray-200">
-              <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
-              <p className="text-xs font-medium uppercase tracking-wider mt-0.5" style={{ color: '#B8B5B0' }}>{s.label}</p>
+        {/* ── Metric cards ────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+          {metrics.map(m => (
+            <div key={m.label} style={{ background: 'white', borderRadius: 8, border: '1px solid #E5E2DE', padding: '16px 18px' }}>
+              <p style={{ fontSize: 34, fontWeight: 800, color: m.color, margin: 0, lineHeight: 1, letterSpacing: '-0.04em' }}>
+                {m.value}
+              </p>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', color: '#B8B5B0', margin: '6px 0 0', textTransform: 'uppercase' }}>
+                {m.label}
+              </p>
             </div>
           ))}
         </div>
 
+        {/* ── XP progress bar ─────────────────────────────────── */}
         {xp > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 mb-5">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#7A7875' }}>
+          <div style={{ background: 'white', borderRadius: 8, border: '1px solid #E5E2DE', padding: '11px 18px', marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#4A4A48', textTransform: 'uppercase' }}>
                 {levelName(xp)}
               </span>
-              <span className="text-xs" style={{ color: '#B8B5B0' }}>{xpInLevel}/500 XP</span>
+              <span style={{ fontSize: 11, color: '#B8B5B0' }}>{xpInLevel} / 500 XP</span>
             </div>
-            <div className="h-1.5 rounded-full" style={{ backgroundColor: '#F5F3F0' }}>
-              <div className="h-1.5 rounded-full transition-all" style={{ width: `${xpPct}%`, backgroundColor: '#6B50B8' }} />
+            <div style={{ height: 5, borderRadius: 99, background: '#F5F3F0', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 99, width: `${xpPct}%`, backgroundColor: '#C13B2A', transition: 'width 0.6s ease' }} />
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Two-column body ─────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '62fr 38fr', gap: 24, alignItems: 'start' }}>
+
+          {/* LEFT — My Reports */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#7A7875' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7875', textTransform: 'uppercase', margin: 0 }}>
                 {tr.myReports} ({myTickets.length})
               </h2>
-              <Link to="/citizen/tickets" className="text-xs font-medium hover:underline" style={{ color: '#C13B2A' }}>{tr.viewAll}</Link>
+              <Link to="/citizen/tickets" style={{ fontSize: 11, fontWeight: 600, color: '#C13B2A', textDecoration: 'none' }}>
+                {tr.viewAll}
+              </Link>
             </div>
+
             {myLoading ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                <div className="w-5 h-5 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: '#C13B2A', borderTopColor: 'transparent' }} />
-              </div>
+              <Spinner />
             ) : myTickets.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                <p className="text-3xl mb-2">📋</p>
-                <p className="text-sm font-medium" style={{ color: '#4A4A48' }}>{tr.noReports}</p>
-                <p className="text-xs mt-1 mb-3" style={{ color: '#7A7875' }}>{tr.seeIssue}</p>
-                <Link to="/citizen/report"
-                  className="inline-block px-4 py-2 rounded text-white text-xs font-semibold"
-                  style={{ backgroundColor: '#C13B2A' }}>
-                  {tr.reportFirst}
+              <div style={{ background: 'white', borderRadius: 8, border: '1px solid #E5E2DE', padding: '32px 24px', textAlign: 'center' }}>
+                <IconClipboard size={30} stroke={1} style={{ color: '#D4CFC8', marginBottom: 10 }} />
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#4A4A48', margin: '0 0 4px' }}>{tr.noReports}</p>
+                <p style={{ fontSize: 11, color: '#7A7875', margin: '0 0 18px' }}>{tr.seeIssue}</p>
+                <Link to="/citizen/report" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 6, backgroundColor: '#C13B2A',
+                  color: 'white', fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                }}>
+                  <IconPlus size={12} stroke={2.5} />
+                  {xs.reportFirst}
                 </Link>
               </div>
             ) : (
-              myTickets.slice(0, 4).map(t => <TicketRow key={t.id} ticket={t} tr={tr} />)
+              myTickets.slice(0, 5).map(t => (
+                <TicketCard key={t.id} ticket={t} tr={tr} xs={xs} />
+              ))
             )}
           </div>
 
+          {/* RIGHT — Community Feed */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#7A7875' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7875', textTransform: 'uppercase', margin: 0 }}>
                 {tr.communityFeed}
               </h2>
-              <Link to="/citizen/map" className="text-xs font-medium hover:underline" style={{ color: '#C13B2A' }}>{tr.mapView}</Link>
+              <Link to="/citizen/map" style={{ fontSize: 11, fontWeight: 600, color: '#C13B2A', textDecoration: 'none' }}>
+                {tr.mapView}
+              </Link>
             </div>
+
             {feed.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                <div className="w-5 h-5 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: '#C13B2A', borderTopColor: 'transparent' }} />
-              </div>
+              <Spinner />
             ) : (
-              feed.map(t => <TicketRow key={t.id} ticket={t} tr={tr} />)
+              feed.map(t => (
+                <TicketCard key={t.id} ticket={t} tr={tr} xs={xs} compact />
+              ))
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-          {[
-            { to: '/citizen/map',         icon: '🗺️', label: tr.communityMap },
-            { to: '/citizen/leaderboard', icon: '🏆', label: tr.leaderboard },
-            { to: '/citizen/profile',     icon: '👤', label: tr.myProfile },
-            { to: '/citizen/tickets',     icon: '📋', label: tr.allMyTickets },
-          ].map(l => (
-            <Link key={l.to} to={l.to}
-              className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-2 hover:border-gray-300 transition">
-              <span className="text-lg">{l.icon}</span>
-              <span className="text-xs font-medium" style={{ color: '#4A4A48' }}>{l.label}</span>
+        {/* ── Quick nav strip ─────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 28 }}>
+          {quickLinks.map(({ to, Icon, label }) => (
+            <Link key={to} to={to} style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              background: 'white', border: '1px solid #E5E2DE', borderRadius: 8,
+              padding: '11px 14px', textDecoration: 'none', transition: 'border-color 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#C13B2A'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E2DE'; }}
+            >
+              <Icon size={15} stroke={1.5} style={{ color: '#7A7875', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#4A4A48' }}>{label}</span>
             </Link>
           ))}
         </div>
+
       </div>
     </div>
   );

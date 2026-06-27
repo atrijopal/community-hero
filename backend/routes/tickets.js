@@ -143,7 +143,16 @@ router.post('/', rateLimiters.report, optionalAuth, upload.single('photo'), asyn
     await logAction(docId, req.user?.uid || 'anonymous', 'TICKET_CREATED', null, 'UNASSIGNED');
 
     if (body.phone || body.email) {
-      notify.ticketCreated({ publicId, phone: body.phone, email: body.email }).catch(console.error);
+      notify.ticketCreated({
+        publicId,
+        phone:       body.phone,
+        email:       body.email,
+        name:        body.citizenName || '',
+        issueType:   body.issueType   || '',
+        severity:    body.severity    || 5,
+        dangerLevel: body.dangerLevel || 'moderate',
+        location:    body.location    || {},
+      }).catch(console.error);
     }
 
     // Award XP if logged in
